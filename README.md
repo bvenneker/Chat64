@@ -1,2 +1,3 @@
-# C64_ChatCartridge_23
-C64 Chat Cartridge, 2023
+# Chat64
+The Chat Cartridge for the Commodore64.
+
