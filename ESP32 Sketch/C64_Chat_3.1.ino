@@ -9,7 +9,7 @@ Preferences settings;
 
 String SwVersion = "3.1";
 
-bool invert_Reset = false; // true for pcb rev 2.0 and up
+bool invert_Reset = true; // true for pcb rev 2.0 and up
 
 
 // About the regID (registration id)
@@ -171,8 +171,8 @@ void setup() {
   lastmessage = settings.getULong("lastmessage", 1)  ;
   lastprivmsg = settings.getULong("lastprivmsg", 1)  ;
 
-  // lastmessage = 1 ;                            // for debugging and testing  //  <<--------------------
-  // lastprivmsg = 1 ;                            // for debugging and testing  //  <<--------------------
+  //lastmessage = 1 ;                            // for debugging and testing  //  <<--------------------
+  //lastprivmsg = 1 ;                            // for debugging and testing  //  <<--------------------
 
   // get Chatserver ip/fqdn from eeprom
   server = settings.getString("server", "empty");
@@ -304,7 +304,7 @@ void fill_userlist(){
 //  the second core and the main program can continue
 // **************************************************
 void Task1code( void * parameter) {
-  
+
   for(;;) {                               // this is an endless loop
     
     unsigned long heartbeat=millis();
@@ -321,7 +321,8 @@ void Task1code( void * parameter) {
     String serverName = "http://" + server + "/readMessage.php";          // set up the server and needed web page
     WiFiClient client;
     HTTPClient http;
-    http.begin(client, serverName);                                       // start the http connection    
+    http.setReuse(true);
+    http.begin(client, serverName);                                   // start the http connection    
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
   
     // Prepare your HTTP POST request data
@@ -384,7 +385,7 @@ void Task1code( void * parameter) {
           haveMessage=0;
           }
         } 
-  } 
+    } 
   // Free resources
   http.end();   
   }
@@ -618,7 +619,6 @@ void loop() {
         }
         else { // No message for now :-(
          sendByte(128);    
-         getMessage=true;
         } 
       getMessage=true;     
     }
@@ -762,7 +762,17 @@ void loop() {
       String ns = bns;
       server = ns;
       settings.begin("mysettings", false);
+
+      // store the new server name in the eeprom settings
       settings.putString("server", ns);
+      server = ns;
+
+      // when connecting to a new server, we must also reset the message id's
+      settings.putULong("lastmessage", 1);
+      settings.putULong("lastprivmsg",1);
+      lastmessage = 1 ;                            // for debugging and testing  //  <<--------------------
+      lastprivmsg = 1 ; 
+
       settings.end();
     }
     
