@@ -73,7 +73,7 @@ warmstart:											//
  	sta HAVE_M_BACKUP
  	sta HAVE_P_BACKUP
  	sta HAVE_ML_BACKUP
- 	lda #15
+ 	lda #50											// Set the check interval. 50 will result in once a second.
  	sta CHECKINTERVAL
 	jsr !are_we_in_the_matrix+						// check if we are running inside a simulator (esp32 is disconnected)
 	jsr !callstatus+								// Check the configuration status
@@ -1174,8 +1174,8 @@ jmp !keyinput-										//
 	bne !+											
 	jmp !exit+		
 	
-	!:  
-   jsr !count_private_messages+
+	!:  	
+    jsr !count_private_messages+
 													// Now we will check for new messages.       
   													// send byte 254 to esp32												
 													// it will respond with a message or byte 128 if there are no messages
@@ -1195,13 +1195,13 @@ jmp !keyinput-										//
 	lda RXBUFFER,x
 	cmp #128	
 	bne !dispmessage+	
-	lda #50
- 	sta CHECKINTERVAL
+	lda #100
+ 	sta CHECKINTERVAL 	
 	jmp !exit+
 	
 !dispmessage:										// we have a message to display 									
 	jsr !soundbell+									// make some noise now, there's a message!
-	lda #20											// reset the check interval
+	lda #30											// reset the check interval
  	sta CHECKINTERVAL								// 	
 	ldy RXBUFFER									// Shift the screen up,    
 !up:												// repeat the shift_up routine as many times as needed
@@ -1233,8 +1233,7 @@ jmp !keyinput-										//
 !exit:									
 
 	lda TEMPCOLOR									// restore the current color					
-	sta $0286							
-	
+	sta $0286								
 	rts									
 										
 //=========================================================================================================
