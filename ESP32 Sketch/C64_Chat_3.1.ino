@@ -770,8 +770,11 @@ void loop() {
       // when connecting to a new server, we must also reset the message id's
       settings.putULong("lastmessage", 1);
       settings.putULong("lastprivmsg",1);
-      lastmessage = 1 ;                            // for debugging and testing  //  <<--------------------
+      lastmessage = 1 ;                            
       lastprivmsg = 1 ; 
+
+      // we should also refresh the userlist 
+      users="";
 
       settings.end();
     }
