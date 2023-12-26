@@ -9,7 +9,7 @@ Preferences settings;
 
 String SwVersion = "3.1";
 
-bool invert_Reset = true; // true for pcb rev 2.0 and up
+bool invert_Reset = false; // true for pcb rev 2.0 and up
 
 
 // About the regID (registration id)
@@ -39,9 +39,10 @@ String server = "empty";                          // do not change this!
 String configured = "empty";                      // do not change this!
 volatile unsigned long lastmessage = 1;           // do not change this!
 volatile unsigned long lastprivmsg = 1;           // do not change this!
+volatile unsigned long tempMessageID =0;
 String msgtype="public";                          // do not change this!
 String users="";                                  // a list of all users on this server (yes, this is a long String)
-
+String tempMessageTp ="";
 
 volatile bool dataFromC64 = false;
 volatile bool io2 = false;
@@ -326,7 +327,7 @@ void Task1code( void * parameter) {
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
   
     // Prepare your HTTP POST request data
-    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg+ "&type=" + msgtype;
+    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg+ "&type=" + msgtype + "&version=" + SwVersion;
    
     // Send HTTP POST request
     int httpResponseCode = http.POST(httpRequestData);    
@@ -342,34 +343,24 @@ void Task1code( void * parameter) {
         unsigned long newMessageId = doc["rowid"];      
         // if we get a new message id back from the database, that means we have a new message
         // if the database returns the same message id, there is no new message for us..
-        // store the new lastmessageID in eeprom (if it has changed)
         bool newid=false;
-        if ((msgtype=="private") and (newMessageId !=lastprivmsg)) {
-          settings.begin("mysettings", false);
-          settings.putULong("lastprivmsg", newMessageId);
-          settings.end();            
-
-          lastprivmsg = newMessageId;
+        if ((msgtype=="private") and (newMessageId !=lastprivmsg)) {        
           newid=true;
-          haveMessage=2;  
+           
           String nickname = doc["nickname"]; 
-          if (nickname != myNickName){ pmSender = '@' + nickname;}   
-          
+          if (nickname != myNickName){ pmSender = '@' + nickname;}             
           }
           
         if (msgtype=="public") {
           pmCount=doc["pm"];          
-          if (newMessageId != lastmessage) {
-            settings.begin("mysettings", false);
-            settings.putULong("lastmessage", newMessageId);
-            settings.end();
-            lastmessage = newMessageId;
-            newid=true;
-            haveMessage=1;
+          if (newMessageId != lastmessage) {            
+            newid=true;            
           }
         }
         
-        if (newid){             
+        if (newid){    
+          tempMessageID = newMessageId;
+          tempMessageTp = msgtype;        
           String message=doc["message"];
           String decoded_message = ' ' + my_base64_decode(message);
           int lines=doc["lines"];
@@ -378,8 +369,10 @@ void Task1code( void * parameter) {
           int outputLength = decoded_message.length() ;
           msgbuffersize = (unsigned long)outputLength  ;
           msgbuffer[0]=lines;                      
-          msgbuffersize +=1;                
-          } else {
+          msgbuffersize +=1;   
+          haveMessage=1;
+          if (msgtype=="private") haveMessage=2;
+        } else {
           // we got the same message id back, so no new messages:
           msgbuffersize = 0;
           haveMessage=0;
@@ -615,6 +608,12 @@ void loop() {
         
         // and send the outbuffer
         send_out_buffer_to_C64(); 
+        // store the new message id
+        lastmessage = tempMessageID;
+        settings.begin("mysettings", false);
+        settings.putULong("lastmessage", lastmessage);
+        settings.end(); 
+
         haveMessage=0;
         }
         else { // No message for now :-(
@@ -739,6 +738,11 @@ void loop() {
         
         // and send the outbuffer           
         send_out_buffer_to_C64(); 
+        // store the new message id
+        lastprivmsg = tempMessageID;
+        settings.begin("mysettings", false);
+        settings.putULong("lastprivmsg", lastprivmsg);
+        settings.end(); 
         haveMessage=0;
         }
         else { // no private messages :-(
