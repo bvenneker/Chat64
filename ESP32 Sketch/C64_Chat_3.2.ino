@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.2";
+String SwVersion = "3.2";   // Software version of this sketch
 
 bool invert_Reset = true; // true for pcb rev 2.0 and up
 
@@ -41,7 +41,7 @@ volatile unsigned long lastmessage = 1;           // do not change this!
 volatile unsigned long lastprivmsg = 1;           // do not change this!
 volatile unsigned long tempMsgId   = 1;           // do not change this!
 volatile bool isPrivateMsg = false;               // do not change this!
-
+String RomVersion="";                             // do not change this!
 String users="";                                  // a list of all users on this server (yes, this is a long String)
 volatile bool dataFromC64 = false;
 volatile bool io2 = false;
@@ -287,7 +287,7 @@ void Task1code( void * parameter) {
   
     // Prepare your HTTP POST request data    
     
-    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg+ "&type=" + isPrivateMsg + "&version=" + SwVersion;
+    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg+ "&type=" + isPrivateMsg + "&version=" + SwVersion + "&rom=" + RomVersion;
     // Send HTTP POST request
     int httpResponseCode = http.POST(httpRequestData);    
     if (httpResponseCode == 200) {                                        // httpResponseCode should be 200
@@ -883,11 +883,60 @@ void loop() {
 
     // ------------------------------------------------------------------------------
     // start byte 230 = C64 checks if the esp is connected at all.. or are we running in a simulator?
+    // C64 also sends the current ROM version
     // ------------------------------------------------------------------------------
-    if ((ch == 230)) {      
+    if ((ch == 230)) { 
+
       #ifdef debug
         Serial.println("are we in the Matrix?");      
       #endif
+    
+      // for backwards compatibility (before ROM version 3.2), we do this manualy
+      int i=0;
+      int r=0;
+      while (ch != 128 and i<10) {
+        gpio_set_level(oC64D7, HIGH);                               // ready for next byte
+        while (dataFromC64 == false) {
+          delay(2); // wait for next byte
+          if (r++ > 50) break;
+        }
+        if (r>50){
+          //gpio_set_level(oC64D7, LOW); 
+          RomVersion="3.1";
+          sendByte(128);
+
+          #ifdef debug          
+            Serial.println ("No ROM version received, assuming ROM version 3.1");
+          #endif
+          return;
+        }
+
+        gpio_set_level(oC64D7, LOW);                                //
+        dataFromC64 = false;
+        inbuffer[i] = ch;
+        i++;
+      }
+      i--;
+      inbuffer[i] = 0;                                              // close the buffer
+      inbuffersize = i;
+      // End of backwards compatibility
+
+    // receive the ROM version string:
+    // receive_buffer_from_C64();   <- just use this if all ROMS are 3.2 or better
+      for (int x = 0 ; x < inbuffersize ; x++) {
+        inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
+      }
+
+      char bns[inbuffersize];
+      strncpy ( bns, inbuffer, inbuffersize + 1);
+      String ns = bns;
+      RomVersion = ns;
+      
+      #ifdef debug
+        Serial.print("ROM Version = ");
+        Serial.println (RomVersion);
+      #endif
+
       sendByte(128);
     }
       
