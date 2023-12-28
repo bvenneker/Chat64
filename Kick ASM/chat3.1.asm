@@ -73,7 +73,7 @@ warmstart:											//
  	sta HAVE_M_BACKUP
  	sta HAVE_P_BACKUP
  	sta HAVE_ML_BACKUP
- 	lda #50											// Set the check interval. 50 will result in once a second.
+ 	lda #60											// Set the check interval. 50 will result in once a second.
  	sta CHECKINTERVAL
 	jsr !are_we_in_the_matrix+						// check if we are running inside a simulator (esp32 is disconnected)
 	jsr !callstatus+								// Check the configuration status
@@ -1207,14 +1207,14 @@ jmp !keyinput-										//
 	lda RXBUFFER,x
 	cmp #128	
 	bne !dispmessage+	
-	lda #100
+	lda #60
  	sta CHECKINTERVAL 	
 	jmp !exit+
 	
 !dispmessage:										
  													// we have a message to display 									
 	jsr !soundbell+									// make some noise now, there's a message!
-	lda #30											// reset the check interval
+	lda #20											// reset the check interval
  	sta CHECKINTERVAL								// 	
  	lda RXBUFFER									// the first number in the rx buffer is the number of lines
  	cmp #4											// this number should be 1 or 2 or 3. But not 4 or higher.
@@ -2271,7 +2271,7 @@ text_menu_item_4:					.byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:					.byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:					.byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:						.byte 151; .text "Version";.byte 128
-version:							.byte 151; .text "3.2"; .byte 128
+version:							.byte 151; .text "3.3"; .byte 128
 version_date:						.byte 151; .text "12/2023";.byte 128
 
 text_wifi_menu:						.byte 151; .text "WIFI SETUP"; .byte 128
@@ -2379,7 +2379,7 @@ TIMER2:								.byte 0
 MESSAGELEN:							.byte 0
 VICEMODE:							.byte 0
 TEMPCOLOR:							.byte 0
-CHECKINTERVAL:						.byte 50
+CHECKINTERVAL:						.byte 60
 PMUSER:								.fill 12,32
 SEND_ERROR:							.byte 0
 DO_RESTORE_MESSAGE_LINES:			.byte 0
