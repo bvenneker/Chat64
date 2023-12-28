@@ -97,7 +97,19 @@ warmstart:											//
 	jsr !wait_for_ready_to_receive+					//
 	lda #230										// Load number #230 (to check if the esp32 is connected)
 	sta $de00										// write the byte to IO1
-	lda #100										// Delay 100... hamsters
+	
+													// Send the ROM version to the cartrdige 
+	!:	ldx #1										// x will be our index when we loop over the version text, we start at 1 to skip the first color byte
+!sendversion:   									//
+	jsr !wait_for_ready_to_receive+					// wait for ready to receive (bit D7 goes high)	    
+	lda version,x									// load a byte from the version text with index x
+	sta $de00 	                 	    			// send it to IO1	
+	cmp #128    									// if the last byte was 128, the buffer is finished                   
+	beq !+											// exit in that case     
+	inx												// increase the x index
+	jmp !sendversion-								// jump back to send the next byte
+	    	
+!:	lda #100										// Delay 100... hamsters
 	sta DELAY										// Store 100 in the DELAY variable
 	jsr !delay+										// and call the delay subroutine
 													//
@@ -116,7 +128,7 @@ warmstart:											//
 
 !private_chat_screen:								//
     jsr !start_menu_screen+							// 
-    displayText(text_help_pm,1,0)						// 
+    displayText(text_help_pm,1,0)					// 
     displayText(text_F5_toggle,1,26)				// 
     lda #3											// Set a flag so other routines know that you
     sta SCREEN_ID									// are in a private chat screen	    
@@ -1199,11 +1211,16 @@ jmp !keyinput-										//
  	sta CHECKINTERVAL 	
 	jmp !exit+
 	
-!dispmessage:										// we have a message to display 									
+!dispmessage:										
+ 													// we have a message to display 									
 	jsr !soundbell+									// make some noise now, there's a message!
 	lda #30											// reset the check interval
  	sta CHECKINTERVAL								// 	
-	ldy RXBUFFER									// Shift the screen up,    
+ 	lda RXBUFFER									// the first number in the rx buffer is the number of lines
+ 	cmp #4											// this number should be 1 or 2 or 3. But not 4 or higher.
+ 	bcs !error+										// jumpt to error (to display an error) if the number >= 4 	
+	ldy RXBUFFER									// load the number of lines in the y register							
+													// Shift the screen up,    
 !up:												// repeat the shift_up routine as many times as needed
 	jsr !Shift_Screen_up+							// the RXBUFFER starts with the number of lines
 	dey												//
@@ -1230,12 +1247,17 @@ jmp !keyinput-										//
     lda #0
     sta $02 										// reset the offset buffer.
     jsr !ask_last_pm_sender+
+    
 !exit:									
 
 	lda TEMPCOLOR									// restore the current color					
 	sta $0286								
 	rts									
-										
+!error:										
+	jsr !sounderror+    
+	jsr !Shift_Screen_up+							    
+    displayText(text_rxerror,20,0)
+	jmp !exit-										
 //=========================================================================================================
 // SUB ROUTINE SOUND
 //=========================================================================================================	
@@ -1352,14 +1374,15 @@ beq !v2+
 //========================================================================================================= 
 
 !count_private_messages:										
-									
+	
+	lda SCREEN_ID									// we only want to show this information on the main chat screen 	
+	cmp #0											// main chat screen ID = 0
+	bne !exit+										// if not 0, exit									
+										
 	lda #232										// Load 232 in accumulator (command byte for asking the number of unread private messages)
 	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to obtain connection status from esp32	
 
-	lda SCREEN_ID									// we only want to show this information on the main chat screen 	
-	cmp #0											// main chat screen ID = 0
-	bne !exit+										// if not 0, exit
 	lda #21											// display this on line 21
 	sta $f7											// $f7 is used in displaytextK as the line number
 	lda #26											// display this test at row (or column) 26	
@@ -2248,8 +2271,8 @@ text_menu_item_4:					.byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:					.byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:					.byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:						.byte 151; .text "Version";.byte 128
-version:							.byte 151; .text "3.1"; .byte 128
-version_date:						.byte 151; .text "11/2023";.byte 128
+version:							.byte 151; .text "3.2"; .byte 128
+version_date:						.byte 151; .text "12/2023";.byte 128
 
 text_wifi_menu:						.byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:						.byte 145; .text "SSID:"; .byte 128
@@ -2323,6 +2346,9 @@ screen_lines_low:  					.byte $00,$28,$50,$78,$A0,$C8,$F0,$18,$40,$68,$90,$b8,$e
 screen_lines_high: 					.byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,07,$07
 color_lines_high:  					.byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db
 message_start: 						.byte 21,20,19,18,17,16,15
+
+text_rxerror:						.byte 143,146; .text"system: Error: received garbage";.byte 128
+
 //=========================================================================================================
 // VARIABLE BUFFERS
 //=========================================================================================================
