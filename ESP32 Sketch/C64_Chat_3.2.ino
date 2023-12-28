@@ -9,7 +9,7 @@ Preferences settings;
 
 String SwVersion = "3.2";
 
-bool invert_Reset = false; // true for pcb rev 2.0 and up
+bool invert_Reset = true; // true for pcb rev 2.0 and up
 
 
 // About the regID (registration id)
