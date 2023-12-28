@@ -3,7 +3,7 @@
 #include "Preferences.h"    // this library is part of the esp32 installation
 #include "ArduinoJson.h"    // this library should be installed manually!
                             // We use version 6.21.4. The library is written by Benoit Blanchon
-#define debug 
+//#define debug 
 
 Preferences settings;
 
