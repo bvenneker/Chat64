@@ -668,6 +668,9 @@ void loop() {
         // ------------------------------------------------------------------------------
         // start byte 247 = C64 triggers call to the website for new private message
         // ------------------------------------------------------------------------------
+        // if the user list is empty, get the list (this happens only once)
+        if (users.length() < 1) users = getUserList(-1);
+        
         isPrivateMsg = true;
         pmCount = 0;
         if (haveMessage == 2) {
