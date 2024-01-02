@@ -1217,8 +1217,8 @@ jmp !keyinput-										//
 	lda #20											// reset the check interval
  	sta CHECKINTERVAL								// 	
  	lda RXBUFFER									// the first number in the rx buffer is the number of lines
- 	cmp #4											// this number should be 1 or 2 or 3. But not 4 or higher.
- 	bcs !error+										// jumpt to error (to display an error) if the number >= 4 	
+ 	cmp #5											// this number should be 1 or 2 or 3. But not 4 or higher.
+ 	bcs !error+										// jumpt to error (to display an error) if the number >= 5 	
 	ldy RXBUFFER									// load the number of lines in the y register							
 													// Shift the screen up,    
 !up:												// repeat the shift_up routine as many times as needed
@@ -2271,8 +2271,8 @@ text_menu_item_4:					.byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:					.byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:					.byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:						.byte 151; .text "Version";.byte 128
-version:							.byte 151; .text "3.3"; .byte 128
-version_date:						.byte 151; .text "12/2023";.byte 128
+version:							.byte 151; .text "3.4"; .byte 128
+version_date:						.byte 151; .text "01/2024";.byte 128
 
 text_wifi_menu:						.byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:						.byte 145; .text "SSID:"; .byte 128
