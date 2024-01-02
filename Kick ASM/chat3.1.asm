@@ -1217,7 +1217,7 @@ jmp !keyinput-										//
 	lda #20											// reset the check interval
  	sta CHECKINTERVAL								// 	
  	lda RXBUFFER									// the first number in the rx buffer is the number of lines
- 	cmp #5											// this number should be 1 or 2 or 3. But not 4 or higher.
+ 	cmp #5											// this number should be 2,3 or 4. But not 5 or higher.
  	bcs !error+										// jumpt to error (to display an error) if the number >= 5 	
 	ldy RXBUFFER									// load the number of lines in the y register							
 													// Shift the screen up,    
