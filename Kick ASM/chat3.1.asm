@@ -1469,53 +1469,50 @@ beq !wait_message_complete-							// stay in this loop until we get a response
 //=========================================================================================================
 // SUB ROUTINE, Shift the message screen up. (so not the whole screen, just the messages)
 //========================================================================================================= 
-!Shift_Screen_up:							    
-													// this routine should behave a little bit different if we are in the private chat screen
-	lda SCREEN_ID									// load the screen id				
-	cmp #3											// 3 is the private chat screen
-	bne !m+											// if not goto to m label		
-	ldx #120										// if this is the private chat we start shifting up but ignore the first 3 lines (120 characters)
-	jmp !l+											// jump into the loop.			
-													//	
-!m:													// if we are on the main chat screen, we start shifting at zero.
-    ldx #0											// x is our index for reading and writing the screen
-!l: lda $428,x										// load the character
-    sta $400,x										// write the character somewhere else
-    lda $D828,x										// load the color
-    sta $D800,x										// write the color somewhere else
-    inx   											//
-    cpx #240										// 6 lines
-    bne !l-
-    
-    ldx #$00
-!l: lda $518,x    
-    sta $4F0,x
-    lda $D918,x
-    sta $D8F0,x
-    inx   
-    cpx #240										// 6 lines
-    bne !l-    
-    
-    ldx #$00
-!l: lda $608,x    
-    sta $5E0,x
-    lda $DA08,x
-    sta $D9E0,x
-    inx   
-    cpx #240										// 6 lines
-    bne !l-
-    
-    ldx #$00
-!l: lda $6F8,x    
-    sta $6D0,x
-    lda #32											// load the space character
-    sta $6F8,x										// and write it to clear the original character (this is only needed on the last lines)
-    lda $DAF8,x
-    sta $DAD0,x
-    inx   
-    cpx #80											// 2 lines
-    bne !l-
-rts																	
+!Shift_Screen_up:													
+	tya												// move y to a
+	pha												// push it to the stack
+													//
+	ldx SCREEN_ID									// if screen_id==0 (public chat), we start scrolling at line 0
+													// if screen_id==3 (private chat), we start scrolling at line 3 				    																
+!screenloop:										//
+													// set destination pointers
+	lda screen_lines_low,x							//
+	sta $f9											//
+	sta $fd											//
+	lda screen_lines_high,x							//
+	sta $fa											//
+	lda color_lines_high,x							//
+	sta $fe											//
+													// set source pointers	
+	inx												// increase x (the source is always 1 line below the destination)
+	lda screen_lines_low,x							//
+	sta $f7											//
+	sta $fb											//
+	lda screen_lines_high,x							//
+	sta $f8											//
+	lda color_lines_high,x							//
+	sta $fc											//
+													//
+	ldy #0 											// y is the character counter (40 characters per line)
+!readwrite: 										// start the copy
+	lda ($f7),y									  	// read character information 
+	sta ($f9),y									  	// write character information	
+	lda ($fb),y									  	// read color information
+	sta ($fd),y									  	// write color information
+	lda #32											// load the space character
+	sta ($f7),y										// overwrite the source character
+	iny												// increase y
+	cpy #40											// are we at the end of the line?
+	bne !readwrite-									// if not continue the loop
+	cpx #20											// have we reached line 20?
+	beq !exit+										// if so, exit
+	jmp !screenloop-								// if not, continue with the next line
+
+!exit:
+	pla												// pull the y register from the stack
+	tay												// move it to the y register
+rts															
 	
 //=========================================================================================================
 // SUB ROUTINE, CHECK CONFIGURATION STATUS
