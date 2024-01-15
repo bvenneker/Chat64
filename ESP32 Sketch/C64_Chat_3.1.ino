@@ -176,7 +176,7 @@ void setup() {
   //lastprivmsg = 1 ;                            // for debugging and testing  //  <<--------------------
 
   // get Chatserver ip/fqdn from eeprom
-  server = settings.getString("server", "empty");
+  server = settings.getString("server", "www.chat64.nl");
 
   // get WiFi credentials and Chatserver ip/fqdn from eeprom
   ssid = settings.getString("ssid", "empty");
