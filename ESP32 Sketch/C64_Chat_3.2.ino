@@ -3,14 +3,13 @@
 #include "Preferences.h"  // this library is part of the esp32 installation
 #include "ArduinoJson.h"  // this library should be installed manually!
                           // We use version 6.21.4. The library is written by Benoit Blanchon
-//#define debug
+#define debug
 
 Preferences settings;
 
 String SwVersion = "3.2";  // Software version of this sketch
 
 bool invert_Reset = true;  // true for pcb rev 2.0 and up
-
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -26,7 +25,7 @@ bool invert_Reset = true;  // true for pcb rev 2.0 and up
 String regID = "";       // String variale for your regID (leave it empty!)
 String macaddress = "";  // variable for the mac address (leave it empty!)
 String myNickName = "";  // variable for your nickname (leave it empty!)
-//String ret = "";                                  // variable for the return code from the website
+
 String ServerConnectResult = "";
 byte ResultColor = 144;
 int pmCount = 0;       // counter for the number of unread private messages
@@ -92,8 +91,8 @@ int userPage=0;
 // *************************************************
 // Interrupt routine for IO1
 // *************************************************
-void IRAM_ATTR isr_io1() {
-
+volatile int rrr=0;
+void IRAM_ATTR isr_io1() {   
   // This signal goes LOW when the commodore writes to (or reads from) the IO1 address space
   // In our case the Commodore 64 only WRITES the IO1 address space, so ESP32 can read the data.
   digitalWrite(oC64D7, LOW);  // this pin is used for flow controll,
@@ -103,7 +102,7 @@ void IRAM_ATTR isr_io1() {
   digitalWrite(pload, HIGH);  // stop loading parallel data and enable shifting serial data
   ch = shiftIn(sdata, sclk, MSBFIRST);
   dataFromC64 = true;
-  digitalWrite(pload, LOW);
+  digitalWrite(pload, LOW);   
 }
 
 // *************************************************
@@ -127,7 +126,7 @@ void IRAM_ATTR isr_reset() {
 // *************************************************
 void setup() {
   Serial.begin(115200);
-
+  Serial.println("Serial Started");
   // we create a task for the second (unused) core of the esp32
   // this task will communicate with the web site while the other core
   // is busy talking to the C64
@@ -184,7 +183,7 @@ void setup() {
   settings.end();
 
   // define inputs
-  pinMode(sdata, INPUT);
+  pinMode(sdata,INPUT);
   pinMode(C64IO1, INPUT_PULLDOWN);
   pinMode(C64IO2, INPUT_PULLUP);
   pinMode(resetSwitch, INPUT_PULLUP);
@@ -353,7 +352,6 @@ void Task1code(void* parameter) {
 String getUserList(int page) {
   String call = "";
   if (page < 0) call = "list";
-
   String serverName = "http://" + server + "/list_users.php";
   WiFiClient client;
   HTTPClient http;
@@ -364,9 +362,14 @@ String getUserList(int page) {
   String result = "0";
   if (httpResponseCode == 200) {
     result = http.getString();
-    result.trim();
+    result.trim();    
   } else result = "communication error";
   http.end();
+  #ifdef debug
+    Serial.print("User list: ");
+    Serial.println(result);
+  #endif
+
   return result;
 }
 
@@ -401,10 +404,10 @@ void SendMessageToServer(String Encoded, String RecipientName, String call) {
     Serial.println(ret);
 #endif
   } else {
-    // #ifdef debug
+  #ifdef debug
     Serial.print("Error code in SendMessageToServer: ");
     Serial.println(httpResponseCode);
-    // #endif
+  #endif
   }
   // Free resources
   http.end();
@@ -501,7 +504,10 @@ void loop() {
   if (dataFromC64) {
     dataFromC64 = false;
     gpio_set_level(oC64D7, LOW);  // flow control
-
+#ifdef debug
+  Serial.print("incomming command: ");
+  Serial.println(ch);
+#endif
     // 254 = C64 asks to send message (from db to C64)
     // 253 = new message from c64 to database
     // 252 = set new wifi password
@@ -719,7 +725,7 @@ void loop() {
         settings.end();
         // we should also refresh the userlist
         users = "";
-        lastmessage = 1;  // for debugging and testing  //  <<--------------------
+        lastmessage = 1;
         lastprivmsg = 1;
       break; }
 
@@ -828,6 +834,7 @@ void loop() {
         // ------------------------------------------------------------------------------
         // start byte 236 = C64 asks for the server configuration status
         // ------------------------------------------------------------------------------
+        delay(100);
         send_String_to_c64(configured);
 
       break; }
@@ -958,6 +965,10 @@ void loop() {
         // ------------------------------------------------------------------------------
         // start byte 229 = C64 asks if this is an existing user (for private chat)
         // ------------------------------------------------------------------------------
+        #ifdef debug
+          Serial.print("Known users: ");
+          Serial.println(users);
+        #endif
 
         receive_buffer_from_C64();
         for (int x = 0; x < inbuffersize; x++) {
