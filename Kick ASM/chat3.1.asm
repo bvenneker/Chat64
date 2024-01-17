@@ -1,35 +1,27 @@
 // General info
 // PETSCI KEY CODES: https://sta.c64.org/cbm64petkey.html 
 // SCREEN functions: https://sta.c64.org/cbm64scrfunc.html
-
-
 //=========================================================================================================
 //	Kick assembler
 //=========================================================================================================
-
 .var CARTRIDGE_8K   = $2000
 .var CARTRIDGE_SIZE = CARTRIDGE_8K
-
 .segment CARTRIDGE_FILE [start=$8000,min=$8000, max=$8000+CARTRIDGE_SIZE-1, fill,outBin="cartridge.bin"]   
-   
-
 //=========================================================================================================
 //	Start of cartridge memory and start parameters
 //=========================================================================================================
-
 * = $8000											// Start address cartridge
 													//
 	.word	coldstart								// Cartridge cold-start vector dynamic
 	.word	warmstart								// Cartridge warm-start vector dynamic
 	.byte	$C3, $C2, $CD, $38, $30					// CBM8O - Cartridge present string
-
+													//
 //=========================================================================================================
 //	Cold start procedure
 //=========================================================================================================
-
-coldstart: 
-
-//	KERNAL RESET ROUTINE
+coldstart:											// 
+													//
+//	KERNAL RESET ROUTINE							//
 	sei												// Disable interrupts
 	stx $D016										// Turn on VIC for PAL / NTSC check
 	jsr $FDA3										// IOINIT - Init CIA chips
@@ -38,16 +30,17 @@ coldstart:
 	jsr $FF5B										// CINT   - Init VIC and screen editor
 	cli												// Re-enable interrupts
 	jmp !main_init+									// Jump to main program
-
+													//
 //=========================================================================================================
 //	Warm start procedure
 //=========================================================================================================
-
 warmstart:											//
 													//
 !main_init:  										//
+	lda #128										// Load number 128
+	sta $de00										// write the byte to IO1
 
-
+	lda #5 ; sta $9c								// default line color (green)
 	ldx #24											// zero SID sound register (1) 
 	lda #0											// 		
 	sta $d020										// Set black screen
@@ -57,47 +50,45 @@ warmstart:											//
 	dex												//
 	bne !clear_sid_loop-							//	 
  													//
-	jsr !start_screen+								// Call the start screen sub routine first
 	lda #<(nmi)     								// \
 	sta $0318       								//  \ Load our new nmi vector
 	lda #>(nmi)     								//	/ And replace the old vector to our own nmi routine
-	sta $0319       								// /  
-	jsr $E544		 								// Clear screen
-	lda #23											// Load 23 into accumulator and use it to
- 	sta $D018										// Switch to LOWER CASE	
+	sta $0319       								// /  	
 	lda #0											// Load 0 into accumulator
 	sta $d020										// Set black screen
 	sta $d021										// Set black border														
 	sta $02 										// store it in zero page address $02
 	sta VICEMODE									// vice mode default is zero	
- 	sta HAVE_M_BACKUP
- 	sta HAVE_P_BACKUP
- 	sta HAVE_ML_BACKUP
+ 	sta HAVE_M_BACKUP								//
+ 	sta HAVE_P_BACKUP								//
+ 	sta HAVE_ML_BACKUP								//
  	lda #60											// Set the check interval. 50 will result in once a second.
- 	sta CHECKINTERVAL
+ 	sta CHECKINTERVAL								//
+ 	jsr !start_screen+								// Call the start screen sub routine first
+ 	jsr $E544		 								// Clear screen
+ 	lda #23											// Load 23 into accumulator and use it to
+ 	sta $D018										// Switch to LOWER CASE	
 	jsr !are_we_in_the_matrix+						// check if we are running inside a simulator (esp32 is disconnected)
 	jsr !callstatus+								// Check the configuration status
-	lda CONFIG_STATUS	 
+	lda CONFIG_STATUS	 							//
 	cmp #4											// Are we fully configured?
 	bne !mainmenu+									// No, jump to main menu first
- 	jmp !main_chat_screen+
- 	
- !mainmenu: 
- 	jmp !mainmenu+
-
-
-
+ 	jmp !main_chat_screen+							//
+ 													//
+ !mainmenu: 										//
+ 	jmp !mainmenu+									//
+													//
 //=========================================================================================================
 //  Vice Simulation check
 //=========================================================================================================
-!are_we_in_the_matrix:
+!are_we_in_the_matrix:								//
 													// this is to check if a real cartridge is attached
 													// or if we are running in the Vice simulator
 													// 
 	jsr !wait_for_ready_to_receive+					//
 	lda #230										// Load number #230 (to check if the esp32 is connected)
 	sta $de00										// write the byte to IO1
-	
+													//
 													// Send the ROM version to the cartrdige 
 	!:	ldx #1										// x will be our index when we loop over the version text, we start at 1 to skip the first color byte
 !sendversion:   									//
@@ -108,7 +99,7 @@ warmstart:											//
 	beq !+											// exit in that case     
 	inx												// increase the x index
 	jmp !sendversion-								// jump back to send the next byte
-	    	
+	    											//
 !:	lda #100										// Delay 100... hamsters
 	sta DELAY										// Store 100 in the DELAY variable
 	jsr !delay+										// and call the delay subroutine
@@ -119,13 +110,15 @@ warmstart:											//
 	beq !exit+										// if vice mode, we do not try to communicate with the
 	lda #1											// cartridge because it will result in error
 	sta VICEMODE									//
-	jsr !sounderror+
+	jsr !sounderror+								//
 !exit:												//
+	lda #100										// Delay 100... hamsters
+	sta DELAY										// Store 100 in the DELAY variable
+	jsr !delay+										// and call the delay subroutine
 	rts												//
 //=========================================================================================================
 //    PRIVATE CHAT SCREEN
-//=========================================================================================================
-
+//=========================================================================================================												
 !private_chat_screen:								//
     jsr !start_menu_screen+							// 
     displayText(text_help_pm,1,0)					// 
@@ -134,29 +127,24 @@ warmstart:											//
     sta SCREEN_ID									// are in a private chat screen	    
     jsr !restore_pm_screen+    						// 
 	jmp !chat_screen+								// 
-
+													//
 //=========================================================================================================
 //     MAIN CHAT SCREEN 
 //=========================================================================================================
-
 !main_chat_screen:									//   
  	ldx #0											// get ready to draw the line, x is our index  											
  	stx SCREEN_ID									// also store zero in the screen id	
-!chat_screen: 										//
-    ldx #0											// Draw the line
-!line:									 			// start a loop
-	lda #64											// 64 is the character for a horizontal bar	
-	sta $748,x										// put the character in the screen memory, character code = 64	
-	lda #12											//
-	sta $db48,x										// store the color in the color memory  , color code = 12 = gray
- 	inx												// increase our index x
- 	cpx #40											// stop if x reaches 40
- 	bne !line-										// if not, continue the loop												
-
-lda VICEMODE													
-cmp #1													
-bne !+													
-displayText(text_error_vice_mode,3,8)
+!chat_screen: 										// Draw the devider line
+	lda #12											// color number 12 is gray
+	sta $9c											// store the color code in $c9
+	lda #21											// a line on screen line 21
+	sta $fb											//
+	jsr !draw_menu_line+							//
+													//
+	lda VICEMODE									//			
+	cmp #1											//	
+	bne !+											//	
+	displayText(text_error_vice_mode,3,8)			//
 													//
 !: 	lda #1											// 
  	sta $0286										// set current color to 1 (white)
@@ -185,8 +173,8 @@ displayText(text_error_vice_mode,3,8)
     sta DO_RESTORE_MESSAGE_LINES					//	
     jsr !backup_screen+								// backup the public message screen
     jmp !private_chat_screen-						// and jump to the private message screen to send you message privately
-    
-!private_message:
+    												//
+!private_message:									//
 	jsr !check_pm_user+								// if it is a private message, check if the user exists. 
 	lda SEND_ERROR									// if the user does not exist, SEND_ERROR will be non-zero
 	cmp #0											//
@@ -200,7 +188,7 @@ displayText(text_error_vice_mode,3,8)
 !loop:												// start a loop
 	lda $770,x										// read a character from screen (the message)
 	cmp #32											// test if it is a space
-	beq !+											// 							
+	beq !+											// 
 	cmp #96											// screen code 96 also represents a space character
 	beq !+											//										
 	cmp #127										// screen codes >= 127 also need to be ignored 
@@ -255,8 +243,7 @@ displayText(text_error_vice_mode,3,8)
 													//
 !exit:												//
 jmp !chat_screen-									// jump back to the start of the chat screen routine.
-
-
+													//
 //=========================================================================================================
 //     MAIN MENU
 //=========================================================================================================
@@ -266,11 +253,11 @@ jmp !chat_screen-									// jump back to the start of the chat screen routine.
 	jsr $E544										// Clear screen	
 	jsr !draw_top_menu_lines+						//
 rts													//	
+													//	
 //=========================================================================================================
 !mainmenu:											//
-	
 	jsr !start_menu_screen-							//
-	lda #23 ; sta $fb								// Load 23 into accumulator and store it in zero page address $fb
+	lda #23 ; sta $fb								// Load 23 into accumulator and store it in zero page address $fb	
 	jsr !draw_menu_line+							// Call the draw_menu_line sub routine to draw a line on row 23	
 	lda CONFIG_STATUS								// Check the config status
 	cmp #4											// Configuration complete?
@@ -307,14 +294,14 @@ rts													//
 !keyinput:											// 
 													//
 	jsr $ffe4        								// Call KERNAL routine: Get character from keyboard buffer
-	beq !keyinput-   								// loop if there is none
+//	beq !keyinput-   								// loop if there is none
 	!:cmp #133         								// F1 key pressed?
 	bne !+											// No, next
 	jmp !wifi_setup+								// Yes, go to WiFi setup
 	!:cmp #137										// F2 key pressed?
 	bne !F3+										// No, next
 	jsr !callstatus+								// Yes, check the configuration status
-	lda CONFIG_STATUS									//
+	lda CONFIG_STATUS								//
 	cmp #3											// F2 Allowed now?
 	beq !FA+   										// No, back to keyinput
 	cmp #4											// F2 Allowed now?
@@ -323,14 +310,14 @@ rts													//
 !F3:cmp #134										// F3 key pressed?
 	bne !F4+										// No, next
 	jsr !callstatus+								// Yes, check the configuration status
-	lda CONFIG_STATUS									//
+	lda CONFIG_STATUS								//
 	cmp #4											// F3 Allowed now?
 	bne !keyinput- 									// No, back to keyinput
 	jmp !list_users+								// Yes, jump to List Users
 !F4:cmp #138										// F4 key pressed?
 	bne !F5+										// No, next
 	jsr !callstatus+								// Yes, check the configuration status	
-	lda CONFIG_STATUS									//
+	lda CONFIG_STATUS								//
 	cmp #2											// F4 Allowed in this stage?
 	beq !FS+										// Yes, go to server setup
 	cmp #3											// F4 Allowed in this stage?
@@ -362,7 +349,7 @@ rts													//
 	jmp !main_chat_screen-							// Jump to the main chat screen
 !p: jsr !restore_pm_screen+							// Restore the screen
 	jmp !private_chat_screen-						//
-  
+  													//
 //=========================================================================================================
 //    MENU WIFI SETUP
 //=========================================================================================================
@@ -389,16 +376,16 @@ rts													//
 	jsr !send_start_byte_ff+						// Call the sub routine to send 248 to the esp32
 													//
 	displayText(RXBUFFER,23,3) 						// Display the buffer on screen
-	lda RXBUFFER																									
+	lda RXBUFFER									//															
 	cmp #146										// Buffer starts with color code RED (because connection failed												
-	beq !wifi_error+												
-	jmp !wifi_okay+												
-!wifi_error:										
-	jsr !sounderror+									
-	jmp !continue+									
-!wifi_okay:																							
-	jsr !soundbell2+													
-!continue:													//
+	beq !wifi_error+								//			
+	jmp !wifi_okay+									//		
+!wifi_error:										//
+	jsr !sounderror+								//
+	jmp !continue+									//
+!wifi_okay:											//											
+	jsr !soundbell2+								//				
+!continue:											//
 	lda #249										// Load number #249  (ask for WiFi SSID)
 	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to send 249 to the esp32
@@ -444,7 +431,7 @@ rts													//
 !keyinput:											// At this point the user can select F1 or F7 to Save settings and Test settings, or exit the menu
 													//
 	jsr $ffe4        								// Call KERNAL routine: Get character from keyboard buffer
-	beq !keyinput-   								// Loop if there is none
+//	beq !keyinput-   								// Loop if there is none
 	cmp #133										// F1 key pressed?
 	beq !save_settings+  							// If true, save the WiFi settings	
 	cmp #136										// F7 key pressed?
@@ -485,13 +472,13 @@ rts													//
 	jsr !delay+										// and Again (The Cure, A Forest)
 	ldx #23 ; jsr $e9ff  	   						// Clear line 23 (where the connection status is)
 	jsr !callstatus+								// Check the configuration status
-	lda CONFIG_STATUS
+	lda CONFIG_STATUS								//
 	cmp #4											// Config already done?
 	beq !+											// if so, we do not have to alter the status
 	lda #2			  							    // Tell the main menu that WiFi is configured
 	jsr !sendstatus+								// 
 !:	jmp !wifi_setup-   								// Jump to start WiFi setup
-
+													//
 //=========================================================================================================
 //    MENU ACCOUNT SETUP
 //=========================================================================================================
@@ -502,9 +489,8 @@ rts													//
 // send byte 239 to get the mac address from the ESP32
 // send byte 245 to get the server name (or ip address) from the ESP32
 //=========================================================================================================
-!account_setup:
-	
-	jsr !start_menu_screen-
+!account_setup:										//
+	jsr !start_menu_screen-							//
   	lda #10 ; sta $fb								// Load 10 into accumulator and store it in zero page address $fb
   	jsr !draw_menu_line+							// Call the draw_menu_line sub routine to draw a line on row 8
   	lda #20 ; sta $fb								// Load 20 into accumulator and store it in zero page address $fb
@@ -531,11 +517,11 @@ rts													//
 	lda #241										// Load number #241 
 	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to send 241 to the esp32
-	
-	lda VICEMODE
-	cmp#1
-	bne !+
-	jmp !fill_fields+
+													//
+	lda VICEMODE									//
+	cmp#1											//
+	bne !+											//
+	jmp !fill_fields+								//
 													// The first character in the RXbuffer now contains the registration status. u = unregistred, r = registered, n=registred but nickname is alreay taken by someone else												
   !:lda RXBUFFER									// load the first char into the accumulator	
     cmp #21											// compare to 'u' (u means unregistred, so that is an error)
@@ -560,7 +546,7 @@ rts													//
   !:cmp #18											// compare to 'r' (registration was succesful)
     bne !+											// if not skip to the next label
     displayText(text_registration_ok,22,6)			// display the success message         
-    jsr !soundbell2+
+    jsr !soundbell2+								//
     lda #4											// Tell the main menu that Registartion is valid and complete and the user is not blocked
 	jsr !sendstatus+								// 
     												// shift the buffer one position to left (so we cut off the very first char)
@@ -608,7 +594,7 @@ rts													//
 !keyinput:											// At this point the user can select F1 or F7 to Save settings and Test settings, or exit the menu
 													//
 	jsr $ffe4        								// Call KERNAL routine: Get character from keyboard buffer
-	beq !keyinput-   								// Loop if there is none
+//	beq !keyinput-   								// Loop if there is none
 	cmp #133										// F1 key pressed?
 	beq !save_settings+  							// If true, save the Account settings
 	cmp #139										// F6 Key pressed?
@@ -642,7 +628,6 @@ rts													//
 	sta $de00										// Send the start byte (242 = send new nickname)    	
 	jsr !send_buffer+					  			// Send the new nickname to the ESP32
   													//
-	
 	ldx #22 ; jsr $E9FF 							// Clear line 22
 	inx ; jsr $E9FF 								// Clear line 23
     displayText(text_settings_saved,23,14)			//
@@ -678,7 +663,7 @@ rts													//
 													//	
 !loop_forever:										//	
 	jmp !loop_forever-                 				// Loop forever and wait for the ESP32 to reset the C64
-				
+													//
 //=========================================================================================================
 //    MENU SERVER SETUP
 //=========================================================================================================
@@ -686,7 +671,6 @@ rts													//
 // send byte 246 to set new server ip/fqdn
 // send byte 235 to set configuration status
 //=========================================================================================================
-
 !server_setup:										//
 													//																					
 	jsr !start_menu_screen-							//
@@ -698,10 +682,8 @@ rts													//
 	displayText(text_server_menu,1,15)   			// Display the menu title on line 1, row 15, color 7
 	displayText(text_server_fqdn,4,1)	  			// Display static text "Server:" on line 4, row 1, color 1
 	displayText(text_server_example,6,1)			// Display static text example on line 17, row 4. color 0
-	displayText(text_exit_menu,14,8)				// Display "[ F7 ] exit menu" on line 14, row 8. color 3
-	
-	
-													
+	displayText(text_exit_menu,14,8)				// Display "[ F7 ] exit menu" on line 14, row 8. color 3				
+													//													
 													// Now ask for the server ip/fqdn from ESP
 	lda #245										// Load 245 in accumulator (get current server ip/fqdn)
 	sta $ff											// Store that in zero page location $ff
@@ -735,7 +717,7 @@ rts													//
 													//													
 !keyinput:											// At this point the user can select F1 or F7 to Save settings and Test settings, or exit the menu
 	jsr $ffe4        								// Call KERNAL routine: Get character from keyboard buffer
-	beq !keyinput-   								// Loop if there is none
+//	beq !keyinput-   								// Loop if there is none
 	cmp #133										// F1 key pressed?
 	beq !save_settings+  							// If true, save the server settings
 	cmp #136										// F7 key pressed?
@@ -761,9 +743,9 @@ rts													//
 													//	
 	displayText(text_settings_saved,23,9)			//														
 	ldx #24 ; jsr $e9ff  	   						// Clear line 24 (where the connection status is)	
-	
+													//
 	jsr !callstatus+								// Check the configuration status
-	lda CONFIG_STATUS
+	lda CONFIG_STATUS								//
 	cmp #4											// Server configuration changed, no change in status
 	beq	!nochange+									// Skip status update
 	lda #3     										// Load "C" into accumulator
@@ -781,39 +763,37 @@ rts													//
 	lda #238  										// Load 238 into accumulator
 	sta $de00										// Send the start byte (238 = test chatserver connectivity)
 	jsr !send_buffer+					  			// Send the server ip/fqdn to the ESP32
-
 	jsr !delay+										// and jump to the delay subroutine
 	jsr !delay+										// 
-
-!connection_check:
+													//
+!connection_check:									//
   	lda #237										// Load 237 in accumulator (get current connection status)
 	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to obtain connection status from esp32	
-	lda RXBUFFER															
+	lda RXBUFFER									//
 	cmp #146										// Connection status begins with color code RED											
-	beq !Error+										
+	beq !Error+										//
 	cmp #149										// Connection status begins with color code GREEN
-	beq !Succes+
-	jmp !server_setup_2-
-	 
-!Error:																							
+	beq !Succes+									//
+	jmp !server_setup_2-							//
+	 												//
+!Error:												//										
 	ldx #24 ; jsr $e9ff  	   						// Clear line 24 (where the connection status is)							
 	displayText(RXBUFFER,24,8)						// Display the buffer (containing connection status) on screen
  	jsr !sounderror+								//
-
 	jsr !delay+										// and jump to the delay subroutine
 	jsr !delay+										// 
-	jsr !delay+	
- 	jmp !server_setup_2-
-!Succes:										
+	jsr !delay+										//
+ 	jmp !server_setup_2-							//
+!Succes:											//	
 	ldx #24 ; jsr $e9ff  	   						// Clear line 24 (where the connection status is)
     displayText(RXBUFFER,24,8)						// Display the buffer (containing connection status) on screen
-    jsr !soundbell2+									//
+    jsr !soundbell2+								//
 	jsr !delay+										// and jump to the delay subroutine
 	jsr !delay+										//
-	jsr !delay+ 
-    jmp !server_setup_2-
-	
+	jsr !delay+ 									//
+    jmp !server_setup_2-							//
+													//
 //=========================================================================================================
 //    MENU LIST USERS
 //=========================================================================================================
@@ -822,7 +802,6 @@ rts													//
 // this is repeated 3 times for a total of 60 users per page, 120 users in total.
 // at this point we support a max of 120 users per chat server.
 //=========================================================================================================
-
 !list_users:										//	
 	jsr !start_menu_screen-
 	lda #23 ; sta $fb								// Load 23 into accumulator and store it in zero page address $fb
@@ -835,7 +814,7 @@ rts													//
     lda #234										// load the number #234
     sta $ff											// Store that in zero page location $ff
     jsr !send_start_byte_ff+						// Call the sub routine to send 234 to the esp32 to ask for the the user list (234 resets the page counter, so page is 0)        
-!fp:displayText(RXBUFFER,4,0)
+!fp:displayText(RXBUFFER,4,0)						//
     lda #233										// load the number #233
     sta $ff											// Store that in zero page location $ff
     jsr !send_start_byte_ff+						// Call the sub routine to send 233 to the esp32 to ask for the the user list next page        
@@ -847,7 +826,7 @@ rts													//
     												//
     !keyinput:										// At this point the user can select F7 to exit the menu or pres 'n' or 'p' for next page / previous page
 	jsr $ffe4        								// Call KERNAL routine: Get character from keyboard buffer
-	beq !keyinput-   								// Loop if there is none
+	//beq !keyinput-   								// Loop if there is none
 	cmp #78											// 'n' key pressed?
 	beq !nextpage+		  							// If true, go to the next page
 	cmp #80											// 'p' key pressed?
@@ -888,13 +867,13 @@ rts													//
 	cpx #19											// compare x to 19
 	bne !clearpage-	 								// if x is still lower, repeat the loop
 	rts												// return from sub routine
+													//
 //=========================================================================================================
 //    ABOUT SCREEN
 //=========================================================================================================
-
 !about_screen:										//
 													//
-	jsr !start_menu_screen-
+	jsr !start_menu_screen-							//
 	lda #23 ; sta $fb								// Load 23 into accumulator and store it in zero page address $fb
 	jsr !draw_menu_line+							// Call the draw_menu_line sub routine to draw a line on row 23
 													//
@@ -912,28 +891,26 @@ rts													//
  													//
 	displayText(text_about_footer,24,8)				// Display [ F7 ] to exit about
 													//
-!keyinput:											//
+!f7_to_exit:										//
     jsr $ffe4      									// Call KERNAL routine: Get character from keyboard buffer
-    beq !keyinput- 									// Loop if there is none
     cmp #136										// F7 key pressed?
     beq !exit_menu+	                  				// If true, exit to main menu.			
-    jmp !keyinput-        							// Ignore all other keys and wait for user input again
+    jmp !f7_to_exit-       							// Ignore all other keys and wait for user input again
 													// 
 !exit_menu:											// F7 Pressed!
 													// We reached the end so
 	jmp !mainmenu-									// we jump back to main menu
-
+													//
 //=========================================================================================================
 //    HELP Screen about private chat
 //=========================================================================================================
-
 !help_screen:										//
 													//
-	jsr !start_menu_screen-
+	jsr !start_menu_screen-							//
 	lda #23 ; sta $fb								// Load 23 into accumulator and store it in zero page address $fb
 	jsr !draw_menu_line+							// Call the draw_menu_line sub routine to draw a line on row 23
 													//
-	displayText(text_help_pm,1,8)	 					// 
+	displayText(text_help_pm,1,8)	 				// 
 	displayText(text_help_private1,4,1)				//
 	displayText(text_help_private2,5,1)				//
 	displayText(text_help_private3,6,1)				//
@@ -941,14 +918,13 @@ rts													//
 	displayText(text_help_private5,9,1)				//
 	displayText(text_about_footer,24,8)				//
 													//
-jmp !keyinput-										//
-
-    
+jmp !f7_to_exit-									//
+    												//
 //=========================================================================================================
 //    Function for text input
 //=========================================================================================================
-!text_input: 	
-        
+!text_input: 										//
+        											//
 !clearhome:  										//
 	jsr !wait_cursor_invisible+						//
 	lda SCREEN_ID      								// Load the menu ID
@@ -974,13 +950,13 @@ jmp !keyinput-										//
 													//
 !home: 												//                      		
 	jsr !wait_cursor_invisible+						//
-	lda DO_RESTORE_MESSAGE_LINES
-	cmp #1
-	bne !+
-	dec DO_RESTORE_MESSAGE_LINES
-    jsr !restore_message_lines+
-    rts
-    
+	lda DO_RESTORE_MESSAGE_LINES					//
+	cmp #1											//
+	bne !+											//
+	dec DO_RESTORE_MESSAGE_LINES					//
+    jsr !restore_message_lines+						//
+    rts												//
+    												//
 !:	clc              								// Clear carry so we can SET the cursor position
 	ldx HOME_LINE    								// Select row
 	ldy HOME_COLM    								// Select column
@@ -988,11 +964,10 @@ jmp !keyinput-										//
 	lda #0; sta $00cc   							// Show cursor 
 	lda #5           								// Load 5 in accumulator (petscii code for color white)
 	jsr $ffd2        								// Output that petscii code to screen to change the cursor to white													
-//	jsr !ask_last_pm_sender+		
-			  
-!keyinput:											
-  
-    jsr !check_for_messages+											    
+//	jsr !ask_last_pm_sender+						//
+			  										//
+!keyinput:											//
+    jsr !check_for_messages+						//				    
   !:jsr $ffe4										// Call kernal routine: Get character from keyboard buffer    
 	beq !keyinput-   								// Loop if there is none														
 	cmp #221										// Shift Minus gives a vertical bar, we replace it with underscore
@@ -1004,7 +979,6 @@ jmp !keyinput-										//
 	!:cmp #136										// F7 key pressed? (Is used to exit ANY menu)
 	bne !+											// No, try the next possible match 
 	jmp !exit_F7+									// Yes, jump to exit F7
-
 	!:cmp #135										// F5 key presses
 	bne !+											// No, try the next possible match
 	jmp !exit_F5+									// Yes, jmp to that exit
@@ -1015,24 +989,24 @@ jmp !keyinput-										//
 	beq !home-										// Yes, jump to !home
 	cmp #147         								// Clear home key pressed?
 	bne !+											// Yes, jump to !clearhome
-	jmp !clearhome-
+	jmp !clearhome-									//
 !:	cmp #148         								// Insert key pressed?
-	bne !+
+	bne !+											//
 	jmp !keyinput-									// Yes, jump to !keyinput
 !:	cmp #20          								// Del key pressed?
-	bne !+
+	bne !+											//
 	jmp !preventleft+								// Yes, jump to !preventleft
 !:	cmp #13		   									// Return key pressed?
-	bne !+
+	bne !+											//
 	jmp !preventdown+								// Yes, jump to !preventdown
 !:	cmp #145         								// Cursor up pressed?
-	bne !+
+	bne !+											//
 	jmp !preventup+									// Yes, jump to !preventup
 !:	cmp #17          								// Cursor down pressed?
-	bne !+	
+	bne !+											//
 	jmp !preventdown+								// Yes, jump to !preventdown
 !:	cmp #157         								// Cursor left pressed?
-	bne !+
+	bne !+											//
 	jmp !preventleft+								// Yes, jump to !preventleft
 !:	jmp !preventright+								// Jump to !preventright
 													//			  
@@ -1047,13 +1021,13 @@ jmp !keyinput-										//
 	lda SCREEN_ID									// no need to continue if we are not in the private message screen.
 	cmp #3											// compare the screen ID with 3
 	bne !+											// skip to the next label if we are on any other screen.
-	displayText(empty_line,1,0)
+	displayText(empty_line,1,0)						//
 	displayText(text_help_pm,1,0)					// display the normal text on line 1
     displayText(text_F5_toggle,1,26)				// to overwrite the error message
-!: 	
+!: 													//
 	lda $0286										// if the current color is black, reset it to white.
 	cmp #0											// we do not want black text on black background
-	bne !+
+	bne !+											//
 	lda #5           								// Load 5 in accumulator (petscii code for color white)
 	jsr $ffd2        								// Output that petscii code to screen to change the cursor to white		
 !:	jmp !keyinput-									// jump back to key input		
@@ -1071,8 +1045,7 @@ jmp !keyinput-										//
 	jmp !keyout-									//
 													//			  
 !preventright:										// Prevent right is always in the loop, because normal typing can also cause you to go out of boundries!		
-
-	
+													//	
 !:	pha												// push the accu to the stack to keep it save
 	jsr !clear_field+								// We call !clear_field here because Prevent right is always in the loop.
 	pla												// restore the accumulator
@@ -1101,40 +1074,35 @@ jmp !keyinput-										//
 !exit_F1:			      							// This exit to the main menu should only work in the main chat screen.		  
 	lda SCREEN_ID									// Load the menu ID in accu
 	cmp #0      									// Compare it to zero (zero is the main chat screen)
-	beq !m+										
-	cmp #3										
-	beq !p+										
+	beq !m+											//
+	cmp #3											//
+	beq !p+											//
 	jmp !exit-										// If not equal, jump back up into the key input routine		
 !p: jsr !backup_pm_screen+ 							// Make a backup of the chat before we clear the screen and jump to the main menu
 	jmp !mainmenu-									//
 !m:	jsr !backup_screen+ 							// Make a backup of the chat before we clear the screen and jump to the main menu		  
 	jmp !mainmenu-									//
-	
+													//
 !exit_F5:											//			
 	lda SCREEN_ID									// what screen are we on now?
 	cmp #0											// if we are in the main chat, go to the private chat
 	bne !+											//
-	jsr !backup_message_lines+
+	jsr !backup_message_lines+						//
 	jsr !backup_screen+								//
 	jmp !private_chat_screen-						//
 !:	cmp #3											// if we are in the private chat, go to the main chat
 	bne !exit-										// just go to exit if we are on any other screen.
-	jsr !backup_message_lines+
+	jsr !backup_message_lines+						//
 	jsr !backup_pm_screen+							// make a backup of the private chat screen
 	jsr !restore_screen+							// restore the main chat screen
 	jmp !main_chat_screen-		 		  			// and return to the main chat
-	
-
+													//
 !exit_F7:			      							// This exits TO the main menu or exits to the main chat screen from the private chat screen
 	lda SCREEN_ID									// Load the menu ID in accu
 	cmp #0      									// Compare it to zero (zero is the main chat screen), F7 does nothing in that screen
 	beq !exit-										// If not equal, jump back up into the key input routine		
 	cmp #3											// 3 is the private chat screen		
-	beq !exit-										// F7 does nothing in that screen
-	
-//    jsr !backup_pm_screen+
-//    jsr !restore_screen+							// restore the chat screen
-//	jmp !main_chat_screen-		 		  			// and return to the main chat
+	beq !exit-										// F7 does nothing in that screen	
 !:	jmp !mainmenu-									// return to the main menu
 													//			
 !exit_F6:											//			  
@@ -1152,10 +1120,10 @@ jmp !keyinput-										//
 //=========================================================================================================
 // SUB ROUTINE, CHECK FOR NEW MESSAGES
 //========================================================================================================= 
-!check_for_messages:																																		
+!check_for_messages:								//																		
 	lda $0286										// Load the current color into the accumulator								
     sta TEMPCOLOR									// Store it in a variable.																																
-    
+    												//
 	lda SCREEN_ID									// check if we are in a chat screen											
     cmp #0											// screen 0 is the main chat screen
     beq !throttle_down+								// that's fine, continue
@@ -1178,20 +1146,19 @@ jmp !keyinput-										//
 !do_check:   										//
     lda #0											// reset timer2
     sta TIMER2										//
-
-
-
+													//
+													//
+													//
 	lda VICEMODE									// if we are running in simulation mode											
 	cmp #1											// jump to exit without interacting with ESP32
-	bne !+											
-	jmp !exit+		
-	
-	!:  	
-    jsr !count_private_messages+
+	bne !+											//
+	jmp !exit+										//
+													//
+!:  jsr !count_private_messages+					//
 													// Now we will check for new messages.       
   													// send byte 254 to esp32												
 													// it will respond with a message or byte 128 if there are no messages
-	lda SCREEN_ID
+	lda SCREEN_ID									//
 	cmp #0											// are we in public or private chat?
 	beq !m+											// yes, check for public message
     lda #40											// set sound pitch for private message
@@ -1203,21 +1170,21 @@ jmp !keyinput-										//
 	lda #254										// Load number #254  (ask for public messages)
 !s:	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to send 254 to the esp32
-	ldx #0
-	lda RXBUFFER,x
-	cmp #128	
-	bne !dispmessage+	
-	lda #60
- 	sta CHECKINTERVAL 	
-	jmp !exit+
-	
-!dispmessage:										
+	ldx #0											//
+	lda RXBUFFER,x									//
+	cmp #128										//
+	bne !dispmessage+								//
+	lda #60											//
+ 	sta CHECKINTERVAL 								//
+	jmp !exit+										//
+													//	
+!dispmessage:										//
  													// we have a message to display 									
 	jsr !soundbell+									// make some noise now, there's a message!
 	lda #20											// reset the check interval
  	sta CHECKINTERVAL								// 	
  	lda RXBUFFER									// the first number in the rx buffer is the number of lines
- 	cmp #5											// this number should be 2,3 or 4. But not 5 or higher.
+ 	cmp #5											// this number should be 1 or 2 or 3. But not 4 or higher.
  	bcs !error+										// jumpt to error (to display an error) if the number >= 5 	
 	ldy RXBUFFER									// load the number of lines in the y register							
 													// Shift the screen up,    
@@ -1229,50 +1196,48 @@ jmp !keyinput-										//
 													//
 	ldx RXBUFFER									//
     lda message_start,x								// load the start line from the message_start array, using x as the index            
-
-    sta $f7
-    lda #0
-    sta $f8
-    lda #1
+													//
+    sta $f7											//
+    lda #0											//
+    sta $f8											//
+    lda #1											//
     sta $02											// $02 is used to offset the index when reading the buffer in displaytextK
-
-!load_buffer:
-
-    lda #<(RXBUFFER)
-    sta $fb
-    lda #>(RXBUFFER)
-    sta $fc
-
-    jsr !displaytextK+
-    lda #0
+													//
+!load_buffer:										//
+													//
+    lda #<(RXBUFFER)								//
+    sta $fb											//
+    lda #>(RXBUFFER)								//
+    sta $fc											//
+    jsr !displaytextK+								//
+    lda #0											//
     sta $02 										// reset the offset buffer.
-    jsr !ask_last_pm_sender+
-    
-!exit:									
-
+    jsr !ask_last_pm_sender+						//
+													//
+!exit:												//
+													//
 	lda TEMPCOLOR									// restore the current color					
-	sta $0286								
-	rts									
-!error:										
-	jsr !sounderror+    
-	jsr !Shift_Screen_up+							    
-    displayText(text_rxerror,20,0)
-	jmp !exit-										
+	sta $0286										//
+	rts												//
+!error:												//
+	jsr !sounderror+    							//
+	jsr !Shift_Screen_up+							//  
+    displayText(text_rxerror,20,0)					//
+	jmp !exit-										//
+													//
 //=========================================================================================================
 // SUB ROUTINE SOUND
 //=========================================================================================================	
-
-
-!soundbell:
-	lda #0
-	sta $d400
-	sta $d407
+!soundbell:											//
+	lda #0											//
+	sta $d400										//
+	sta $d407										//
 	lda #143 								    	// set volume to max
 	sta $d418										// and store it here
 	lda PITCH										// load the needed sound pitch (higher value = higher pitch)
 	sta $d401										// and store it here (voice 1)
 	sta $d408										// also here (voice 2)	
-		
+													//
 	lda #15											//
 	sta $d405										// set attack / decay lenght (voice 1)
 	sta $d40c										// set attack / decay lenght (voice 2)
@@ -1280,26 +1245,26 @@ jmp !keyinput-										//
 	sta $d406										// set volume sustain / release lenght (voice 1)
 	sta $d40d										// set volume sustain / release lenght (voice 2)
 											    	//	
-lda VOICE
-cmp #2
-beq !v2+
-	lda #2
-	sta VOICE
-	lda #17
+lda VOICE											//
+	cmp #2											//
+	beq !v2+										//
+	lda #2											//
+	sta VOICE										//
+	lda #17											//
 	sta $d404										// set triangle wave form (bit 4) and gate bit 0 to 1 (sound on) 
 	lda #16											//
 	sta $d404										// set gate bit 0 to 0 (sound off)
-	rts
-!v2:
-	lda #1
-	sta VOICE
-	lda #17
+	rts												//
+!v2:												//
+	lda #1											//
+	sta VOICE										//
+	lda #17											//
 	sta $d40b										// set triangle wave form (bit 4) and gate bit 0 to 1 (sound on) 
 	lda #16											//
 	sta $d40b										// set gate bit 0 to 0 (sound off)
-	rts
-
-!sounderror:
+	rts												//
+													//
+!sounderror:										//
 	lda #143 								    	// set volume to max
 	sta $d418										// and store it here
 	lda #5										    // set the pitch very low
@@ -1315,23 +1280,24 @@ beq !v2+
 	jsr !delay+										// and call the delay subroutine
 	lda #32 										//
 	sta $d404										// set gate bit 0 to 0 (sound off)
-	rts
-
-!soundbell2:
-	lda #36
-	sta PITCH
-   	jsr !soundbell-
-   	lda #20
-	sta DELAY										 
-	jsr !delay+										 
-	lda #48
-	sta PITCH
-   	jsr !soundbell-
-	rts
+	rts												//
+													//
+!soundbell2:										//
+	lda #36											//
+	sta PITCH										//
+   	jsr !soundbell-									//
+   	lda #20											//
+	sta DELAY										//
+	jsr !delay+										// 
+	lda #48											//
+	sta PITCH										//
+   	jsr !soundbell-									//
+	rts												//
+													//
 //=========================================================================================================
 // SUB ROUTINE, ASK FOR THE Nickname of the last PRIVATE MESSAGES
 //========================================================================================================= 										
-!ask_last_pm_sender:										
+!ask_last_pm_sender:								//		
 	lda VICEMODE									// if we are running in simulation mode											
 	cmp #1											// jump to exit without interacting with ESP32									
 	beq !exit+										// yes? Exit the matrix
@@ -1341,92 +1307,88 @@ beq !v2+
 	jsr !wait_cursor_invisible+						//
 	lda #$01; sta $cc								// Hide the cursor		
 	lda #231										// 231 if the command to ask for the last pmuser
-	sta $ff										
-	jsr !send_start_byte_ff+										
-	ldx #0										
-!loop:										
-	lda RXBUFFER,x
-	cmp #128								
-	beq !endloop+														 									
-	sta $770,x								
-	inx
-	lda #32
-	sta $770,x
-	jmp !loop-								
-!endloop:								
-	cpx #0						
-	beq !exit+						
+	sta $ff											//
+	jsr !send_start_byte_ff+						//				
+	ldx #0											//
+!loop:												//
+	lda RXBUFFER,x									//
+	cmp #128										//
+	beq !endloop+									//					 									
+	sta $770,x										//
+	inx												//
+	lda #32											//
+	sta $770,x										//
+	jmp !loop-										//
+!endloop:											//
+	cpx #0											//
+	beq !exit+										//
      												// put the cursor at the end of the @username								
 	clc             	 							// Clear carry so we can SET the cursor position
     txa												// transfer x to a
     tay												// tranfer a to y
-    iny
+    iny												//
 	ldx #22			   								// Select row
 	jsr $E50c        								// Set cursor	
-	
-	     											
-!exit:								
+													//	     											
+!exit:												//
     lda #$00; sta $cc								// Show the cursor				
-	rts								
-											
+	rts												//
+													//
 //=========================================================================================================
 // SUB ROUTINE, ASK FOR THE NUMBER OF UNREAD PRIVATE MESSAGES
 //========================================================================================================= 
-
-!count_private_messages:										
-	
+!count_private_messages:							//
 	lda SCREEN_ID									// we only want to show this information on the main chat screen 	
 	cmp #0											// main chat screen ID = 0
 	bne !exit+										// if not 0, exit									
-										
+													//
 	lda #232										// Load 232 in accumulator (command byte for asking the number of unread private messages)
 	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to obtain connection status from esp32	
-
+													//
 	lda #21											// display this on line 21
 	sta $f7											// $f7 is used in displaytextK as the line number
 	lda #26											// display this test at row (or column) 26	
 	sta $f8											// $f8 is used as the row number in displaytextK
     lda #12											// load the default color
     sta $0286										// store in address 0286 which holds the current color
-jsr !load_buffer-
-    	
-!exit:
+jsr !load_buffer-									//
+													//
+!exit:												//
 	rts												// return to sender, just like Elvis.
-											
+													//
 //=========================================================================================================
 // SUB ROUTINE, ASK CHECK IF USER EXISTS (in the private message screen) @USERNAME
 //========================================================================================================= 
-!check_pm_user:
-													
+!check_pm_user:										//
 	lda $770										// if the message screen does not start with @, 
 	cmp #0											// then we raise an error "Don't send public msgs from priv. screen"
 	beq !+											//
 	jmp !pub_error+									// 
-	
+													//
 !:	ldx #0											// x is used as index
 	stx SEND_ERROR									// also store zero into send_error to reset the error
-
+													//
 !readName:											// and read in the name			
 	lda $770,x										// and check that the cursor is not inside the name right now
 	sta	PMUSER,x									// read the name until the first space
 	cpx #12											// or until we reach the 12th character without any spaces	
-	beq !maxChars+									
-	cmp #32												
-	beq !foundSpace+
-	inx													
-	jmp !readName-												
-				
-!maxChars:												
-	jmp !exit+												
-
-!foundSpace:												
-	lda #128			
-	sta PMUSER,x						
-													
+	beq !maxChars+									//
+	cmp #32											//	
+	beq !foundSpace+								//
+	inx												//	
+	jmp !readName-									//			
+													//
+!maxChars:											//	
+	jmp !exit+										//		
+													//
+!foundSpace:										//		
+	lda #128										//
+	sta PMUSER,x									//
+													//
 	jsr !wait_for_ready_to_receive+					// At this point we have a @username in the pmuser buffer
 	lda #229    									// Load 229 into accumulator	
-	sta $de00										
+	sta $de00										//
 	ldx #1											// Send the start byte (229 = check if this user exists)     
 !sendms:   											//				
 	jsr !wait_for_ready_to_receive+					// wait for ready to receive (bit D7 goes high)	    
@@ -1436,15 +1398,15 @@ jsr !load_buffer-
 	beq !e+											// exit in that case     
 	inx												// increase the x index
 	jmp !sendms-  									// jump back to send the next byte									
-!e:
+!e:													//
 	lda #0                            				// load zero into accumulator
 	sta RXINDEX										// reset the receive buffer index
-	sta RXFULL																					
+	sta RXFULL										//											
 !wait_message_complete:								// wait for a response
 	lda RXFULL										// load RXFULL flag
 	cmp #0											// compare with zero
 beq !wait_message_complete-							// stay in this loop until we get a response																					
-	ldx #0																				
+	ldx #0											//								
 	lda RXBUFFER,x									// check the first character in the buffer																																					
 	sta SEND_ERROR									// if it contains '1' then the user does NOT exist.																				
  	cmp #0											// zero means no errors																		
@@ -1455,17 +1417,18 @@ beq !wait_message_complete-							// stay in this loop until we get a response
 	displayText(PMUSER,1,21)						// display the unknown username first
 	displayText(text_error_unknow_pmuser,1,0)		// then display the errormessage 											 
     jsr !sounderror-								// play the error sound.
-    																																																											
-!exit:
-	rts
-	
-!pub_error:
+													//    																																																											
+!exit:												//
+	rts												//
+													//	
+!pub_error:											//
 	displayText(empty_line,1,0)						// clear line 1
 	displayText(text_error_private_message,1,0)		// then display the errormessage
 	jsr !sounderror-								// play the error sound.
-	lda #1
-	sta SEND_ERROR
-	rts
+	lda #1											//
+	sta SEND_ERROR									//
+	rts												//
+													//
 //=========================================================================================================
 // SUB ROUTINE, Shift the message screen up. (so not the whole screen, just the messages)
 //========================================================================================================= 
@@ -1508,16 +1471,15 @@ beq !wait_message_complete-							// stay in this loop until we get a response
 	cpx #20											// have we reached line 20?
 	beq !exit+										// if so, exit
 	jmp !screenloop-								// if not, continue with the next line
-
-!exit:
+													//
+!exit:												//
 	pla												// pull the y register from the stack
 	tay												// move it to the y register
-rts															
-	
+rts													//													
+													//
 //=========================================================================================================
 // SUB ROUTINE, CHECK CONFIGURATION STATUS
 //========================================================================================================= 
-
 !callstatus:   										//
 	lda VICEMODE									// if we are running in simulation mode											
 	cmp #1											// jump to exit without interacting with ESP32
@@ -1525,19 +1487,18 @@ rts
 	lda #4											// if we are in vice mode, we load 4 into the rxbuffer (4 means fully configured, 5 means empty configuration)
 	sta CONFIG_STATUS								// so the program thinks we have a complete configuration
 	jmp !exit+										// exit this routine, we are in vice mode at this point
-	
+													//
 !:	lda #236										// Load 236 in accumulator (get current connection status)
 	sta $ff											// Store that in zero page location $ff
 	jsr !send_start_byte_ff+						// Call the sub routine to obtain connection status from esp32	   
-	lda RXBUFFER									// X is our counter register
-	sta CONFIG_STATUS
-!exit:
+	lda RXBUFFER									// load the first byte of the response from the esp32 RXBUFFER
+	sta CONFIG_STATUS								// store it as the config_status variable
+!exit:												//
 	rts												// and return to caller
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, SEND CONFIGURATION STATUS
 //========================================================================================================= 
-
 !sendstatus:
 	ldy VICEMODE									// if we are running in simulation mode											
 	cpy #1											// jump to exit without interacting with ESP32
@@ -1558,23 +1519,15 @@ rts
 	rts												// Return to caller
 		
 //=========================================================================================================
-// SUB ROUTINE, CLEAR FIELD PREPARATION
+// SUB ROUTINE, CLEAR FIELD
 //========================================================================================================= 
-
 !clear_field:										//
 													//
 	lda CLEAR_FIELD_FLAG							// Load the Clear flag
 	cmp #1											// Compare it to #1
 	beq !do_clear_field+							// If it is #1, clear the rest of the fied
 	rts												// If not return to caller
-
-
-//=========================================================================================================
-// SUB ROUTINE, CLEAR FIELD
-//========================================================================================================= 
-
 !do_clear_field:									//
-													//
      dec CLEAR_FIELD_FLAG							// First set clear flag back to zero
 													//
 													// How to clear the field?
@@ -1594,15 +1547,13 @@ rts
 	ldy HOME_COLM									// Load the home_colm into y register
 	jsr $e50c										// Set cursor back to home_colm , x=line, y=column
 	rts												// Return to caller
-  
+													//  
 //=========================================================================================================
 // SUB ROUTINE, READ TEXT FIELD FROM SCREEN
 //=========================================================================================================   
-
-!read_from_screen:									//    
+!read_from_screen:									//     
 													//
 	ldy #0											// y will be used as index for the text
-													//
 !read_character:									//
 													// we have a pointer in zero page address $fb that points to the screen position 
 	lda ($fb),y										// Read a character from screen, start at address ($fb), y is the offset
@@ -1615,9 +1566,7 @@ rts
 	lda #128										// Load 128 in accumulator	
 	sta TXBUFFER,y									// Store 128 in the buffer to finish the buffer
 	rts  											// Return to sender, just like elvis.
-
-    
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, to backup the 3 message lines
 //=========================================================================================================   
@@ -1635,7 +1584,7 @@ rts
 	cpx #120										// compare the index with 120
 	bne !loop-										// branche backup to the start if the loop if we have not reached 120
 rts													// exit the routine, return to caller
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, to restore the 3 message lines from backup
 //=========================================================================================================   
@@ -1654,11 +1603,11 @@ rts													// exit the routine, return to caller
 	bne !loop-										// branche backup to the start if the loop if we have not reached 120
 !exit:												//
 	rts												// exit the routine, return to caller
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, to backup the private chat screen
 //=========================================================================================================   
-!backup_pm_screen:
+!backup_pm_screen:									//
 	lda #1											//	
 	sta HAVE_P_BACKUP								// set the have_backup marker to one	
 	ldx #0											//
@@ -1690,7 +1639,7 @@ rts													// exit the routine, return to caller
     cpx #$70										//
 	bne !loop-										//
 	rts												// Return to caller
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, to backup the main chat screen
 //=========================================================================================================   
@@ -1777,11 +1726,10 @@ rts
     cpx #$70										//
 	bne !loop-										//	 
     rts												//
-    
+    												//
 //=========================================================================================================
 // SUB ROUTINE, to restore the main chat screen
 //=========================================================================================================   
-
 !restore_screen:									//
     lda HAVE_M_BACKUP								// see if there is a backup to restore.
     cmp #1											// if HAVE_M_BACKUP==1, continue to the next label
@@ -1818,7 +1766,7 @@ rts
     cpx #$70										//
 	bne !loop-										//	 
     rts												//
-    
+    												//
 //=========================================================================================================
 // SUB ROUTINE, START SCREEN
 //=========================================================================================================   
@@ -1877,47 +1825,43 @@ rts
     lda #>(stars2)									// store the high byte of the stars2 array in zero page 
     sta $ff                 						// memory location $ff  
     jsr !color_stars+								// jump to the color_stars sub routine to do the work  
-
-
+													//
 //=========================================================================================================
 //  SUB ROUTINE TO ANIMATE THE STARS
-//=========================================================================================================
-																									 
-!animate_stars:
+//=========================================================================================================													 
+!animate_stars:										//
 	ldx #1											//
     lda #$d8										// this is the high byte of the color address of all the top stars
     sta $fc											// store that in zero page address $fc
-!loop:
+!loop:												//
 	lda screen_lines_low,x							// load the low byte of the color address
 	sta $fb											// and store it in $fb
 	jsr !shift_color_line_to_left+					// call the shift_left sub routine
 	inx												// increase x to do the next line
 	cpx #6											// check if x reaches 6
 	bne !loop-										// if not continue..
-	
 !:	ldx #18 										//  
-!loop:	
-	lda screen_lines_low,x	
-	sta $f7		
-	lda color_lines_high,x
-	sta $f8
-	jsr !shift_color_line_to_right+
-	inx
-	cpx #24
-	bne !loop-
-  
-!endloop:
+!loop:												//
+	lda screen_lines_low,x							//
+	sta $f7											//
+	lda color_lines_high,x							//
+	sta $f8											//
+	jsr !shift_color_line_to_right+					//
+	inx												//
+	cpx #24											//
+	bne !loop-										//
+													//
+!endloop:											//
     lda #20											//
     sta DELAY										//
     jsr !delay+ 									//
     jsr $ffe4        								// get character from keyboard buffer
     beq !animate_stars-   							// loop if there is none    
     rts												// Return to caller   
- 
+ 													//
 //=========================================================================================================
 //  SUB ROUTINE TO SHIFT THE COLORS IN THE STAR LINES TO LEFT
 //=========================================================================================================
-
 !shift_color_line_to_left:							// a pointer to the color memory address where the line we want to shift starts 
 													// is stored in zero page address $fb, $fc
     ldy #0											// before we start the loop we need to store the color of the very first character
@@ -1941,11 +1885,10 @@ rts
 	pla												//  7) we need to store the color of the very first character (the most left)
 	sta ($fb),y    									//     on the most right position, so the line goes round and round
     rts												// now the colors in this line have shifted 1 position to the left
-    
+    												//
 //=========================================================================================================
 //  SUB ROUTINE TO SHIFT THE COLORS IN THE STAR LINES TO RIGHT
 //=========================================================================================================
-
 !shift_color_line_to_right:    						// a pointer to the color memory address where the line we want to shift starts 
 													// is stored in zero page address $f7, $f8
 													// shifting a line to the right is a bit more complicated as to shifting to the left.
@@ -1969,24 +1912,23 @@ rts
   	lda $ff											// now load $ff (that contains B) back into the accumulator
   	sta ($f7),y										// and put that where C was. The data line now look like this: AABDEFGH (A and B have shifted and C is in temporary storage at $fe)
 	cpy #38											// see if we are at the end of the line
-
+													//
 	bne !loop-										// if not, jump back to the start of the loop
 													// after the loop we have processed 39 positions, but the line is 40 long
 													// At this point G is in memory storage $fe and H is in storage at $ff
 	iny												// increase y
 	lda $fe											// load G	
 	sta ($f7),y										// put it in position H
-	
+													//
 													// NOW the data looks like this: AABCDEFG (all colors have shifted except for H which is in storeage at $fe)
 	ldy #0											// set the index back to zero
 	lda $ff											// load color H into the accumulator
 	sta ($f7),y										// and store it at the first position.
 	rts												// Now our line looks like this: HABCDEFG all colors have shifted to the right one position.
-
+													//
 //=========================================================================================================
 //  SUB ROUTINE TO HELP COLOR THE STARS ON THE START SCREEN
 //=========================================================================================================
-
 !color_stars:										// there are only a few colors in the stars,
 													// for instance all the memory addresses (in color memory) in the array 'stars1' get color 7. the array ends with 0   
 													// the pointer to the array (stars1 for example) is stored in zero page address $fe, $ff. the wanted color is in $fd
@@ -2006,19 +1948,18 @@ rts
 													// now we have a pointer in location $fb, $fc. taken from our stars array and pointing to an address in color memory
 	sty $fa											// store the value of y because we need to reset it to zero for now
 	ldy #0											// reset y to zero
-	
+													//
 	lda $fd											// load the color from zero page address $fd
 	sta ($fb),y										// store that color in the memory address where $fb,$fc points to 
 	jmp !color_loop-								//													//	
 !exit:												// we exit when we find value 0 in our array.	
 													//
 	rts												// return from subroutine, jump back to the main code.
-	
-
+													//	
 //=========================================================================================================
 //  SUB ROUTINE DISPLAY TEXT 
 //=========================================================================================================
-!displaytextK:    					
+!displaytextK:    									//
     												// first we find out if the text needs to be inverted
     												// if the first byte in the text is 143, we will invert the text
     												// Inverting the text is done by adding, or bitwise OR, with the number 128
@@ -2043,9 +1984,9 @@ rts
     sta $c3											// the lower byte of the color ram is the same as the screen ram
     lda screen_lines_high,x							// get the high byte for the screen ram
     sta $c2											// store it in $c2 to complete the pointer
-	lda color_lines_high,x							
+	lda color_lines_high,x							//
 	sta $c4											// we now have pointers to the line, we need to add the column to end up in the exact address
-	
+													//
 	clc												// Clear the carry flag, we are going to do some additions (adc) so we need to clear the flag
 	lda $c3											// load the low byte of the pointer to color RAM (the pointer is in $c3,$c4)
 	adc $f8											// add the column number (stored in $f8)
@@ -2054,7 +1995,7 @@ rts
 	bcc !setup_index+								// if the result was bigger than #$FF (#255) then the carry flag is set and we need to increase the high byte of the pointer also
 	inc $c4											// increase the high byte of the screen RAM pointer with one
 	inc $c2											// and also the high byte of the color RAM pointer
-	
+													//
 !setup_index:										//
 	ldy $02											// load start index into y, y will be our index. It has to be y because we will use Indirect-indexed addressing	(this is zero in most cases. except for when we receive messages)																									
     sty $ff 										// we need two indexes, one for reading the buffer												
@@ -2071,7 +2012,7 @@ rts
     bcc !+    										// if not skip to the next !: label
     sta $f7											// store the color code in this address
 jmp !readbuffer-									// and jump back to read the next byte from the text/buffer
-
+													//
 !:  ldy $fe											// load the screen index into y
     ora $4b											// do a bitwise OR operation with the number in address $4b. If the number is 0 nothing will happen. If the number is 128 the character will invert! 
 	sta ($c1),y					    				// write the character, $c1-$c2 contains a pointer to the address of screen RAM, y is the offset
@@ -2082,12 +2023,10 @@ jmp !readbuffer-									// and jump back to read the next byte from the text/bu
 													//
 !exit:												// at this point we encountered byte 128 in out text string, so we escaped the loop 
 	rts												// return to sender ;-)
-
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, DELAY
 //=========================================================================================================    
-
 !delay:												// the delay sub routine is just a loop inside a loop
 													//
     ldx #00											// the inner loop counts up to 255
@@ -2109,13 +2048,11 @@ jmp !readbuffer-									// and jump back to read the next byte from the text/bu
 	jmp !delay- 									//
 													//
 !enddelay:											//
-													//
 	rts												//
-
+													//									
 //=========================================================================================================
 // SUB ROUTINE, WAIT FOR CURSOR INVISIBLE PHASE
 //=========================================================================================================    
-
 !wait_cursor_invisible:								// wait for the cursor to disapear before moving it
 	tay												// transfer the accumulator to y
 !waitloop:											// start a loop
@@ -2124,22 +2061,20 @@ jmp !readbuffer-									// and jump back to read the next byte from the text/bu
 	bne !waitloop-									// wait for zero
 	tya												// transfer y back to the accumulator
 	rts												//
-
+													//
 //=========================================================================================================
 // SUB ROUTINE, WAIT FOR READY TO RECIEVE SIGNAL FROM ESP32
 //=========================================================================================================
-
 !wait_for_ready_to_receive:  						// wait for ready to receive before we send a byte
 													//
 	lda $df00										// read a value from IO2
 	cmp #128										// compare with 128
 	bcc !wait_for_ready_to_receive-					// if smaller try again
 	rts												//
-	
+													//
 //=========================================================================================================
 // SUB ROUTINE, SEND TX BUFFER TO ESP32
 //=========================================================================================================
-
 !send_buffer:										//
 	lda VICEMODE									// if we are running in simulation mode											
 	cmp #1											// jump to exit without interacting with ESP32
@@ -2160,7 +2095,7 @@ jmp !readbuffer-									// and jump back to read the next byte from the text/bu
 													//
 !exit:												//
 	rts												//
-  
+  													//
 //=========================================================================================================
 // SUB ROUTINES, to draw horizontal lines on screen (used in the menus)
 //=========================================================================================================  
@@ -2174,7 +2109,7 @@ jmp !readbuffer-									// and jump back to read the next byte from the text/bu
 	rts												//
 //=========================================================================================================
 !draw_menu_line:									//
-	ldx $fb											// de desired position of the line is stored in $fb
+	ldx $fb											// load the desired position of the line from $fb
 	lda screen_lines_low,x							// look up the corresponding address in screen RAM (low byte first)
 	sta $fb											// store that in $fb to create a pointer to screen RAM
 	sta $fd											// store the same low byte to create a pointer to the corresponding address in color RAM
@@ -2186,17 +2121,18 @@ jmp !readbuffer-									// and jump back to read the next byte from the text/bu
 !loop:												// start the loop
 	lda #64											// load the screen code for a horizontal bar
 	sta ($fb),y										// put it on screen
-	lda #5											// load the color green
+	lda $9c											// load the color value
 	sta ($fd),y										// put it on screen
 	iny												// increase y
 	cpy #40											// if y reaches 40, exit the loop
 	bne !loop-										// else, continue the loop
+	lda #5											// color number 5 is green
+	sta $9c											// store the color code in $c9 as the default color
 rts													// return from subroutine
-	
+													//
 //=========================================================================================================
 // SUB ROUTINE, send start byte, byte should be stored in zero page address $ff
 //=========================================================================================================  
-
 !send_start_byte_ff:								//
 	lda VICEMODE									// if we are running in simulation mode											
 	cmp #1											// jump to exit without interacting with ESP32
@@ -2220,7 +2156,7 @@ rts													// return from subroutine
 	lda #128										// load 128 
 	sta RXBUFFER									// in vice mode, we empty the buffer (128 is the end marker)
 	rts												// return
-	
+													//
 //=========================================================================================================
 // NMI ROUTINE
 //=========================================================================================================
@@ -2237,7 +2173,7 @@ nmi:												// When the ESP32 loads a byte in the 74ls244 it pulls the NMI l
 	jmp  !exit_nmi+                      			// jump to the exit of this routine
  													// 
 !message_complete:									//
-													// color the border black
+													//
 	lda RXINDEX										// load the value of RXINDEX to see how much we have in the buffer
 	cmp #0											// if the index is still 0, the buffer is empty, set RXFULL to 2 in that case 
 	bne !not_empty+									// jump to the next label if the buffer is NOT empty
@@ -2256,7 +2192,7 @@ nmi:												// When the ESP32 loads a byte in the 74ls244 it pulls the NMI l
 	lda $dd0d   									// you MUST write and read this address to acknoledge the nmi interrupt
 	popreg()										//
 	rti												// return interupt
-	
+													//
 //=========================================================================================================
 // CONSTANTS
 //=========================================================================================================
@@ -2268,7 +2204,7 @@ text_menu_item_4:					.byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:					.byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:					.byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:						.byte 151; .text "Version";.byte 128
-version:							.byte 151; .text "3.4"; .byte 128
+version:							.byte 151; .text "3.5"; .byte 128
 version_date:						.byte 151; .text "01/2024";.byte 128
 
 text_wifi_menu:						.byte 151; .text "WIFI SETUP"; .byte 128
@@ -2343,13 +2279,11 @@ screen_lines_low:  					.byte $00,$28,$50,$78,$A0,$C8,$F0,$18,$40,$68,$90,$b8,$e
 screen_lines_high: 					.byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,07,$07
 color_lines_high:  					.byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db
 message_start: 						.byte 21,20,19,18,17,16,15
-
 text_rxerror:						.byte 143,146; .text"system: Error: received garbage";.byte 128
 
 //=========================================================================================================
 // VARIABLE BUFFERS
 //=========================================================================================================
-
 * = $1000 virtual
 HOME_LINE:							.byte 0			// the start line of the text input box
 HOME_COLM:							.byte 0			// the start column of the text input box
@@ -2361,11 +2295,9 @@ CONFIG_STATUS:						.byte 0			// variable to store the caonfiguration status
 PITCH:								.byte 0 		// variable for sound pitch
 VOICE:								.byte 0			//
 DELAY:								.byte 0			//
+
 RXINDEX:							.byte 0			// index for when we recieve data
 RXFULL:								.byte 0			// indicator if the buffer contains a complete message
-RXBUFFER:   						.fill 256,128	// reserved space for incoming data
-TXBUFFER:							.fill 256,128	// reserved space for outgoing data
-													//			
 HAVE_M_BACKUP:						.byte 0
 HAVE_P_BACKUP:						.byte 0
 HAVE_ML_BACKUP:						.byte 0
@@ -2374,12 +2306,19 @@ COLOR:								.byte 0
 TIMER:								.byte 0
 TIMER2:								.byte 0
 MESSAGELEN:							.byte 0
+
 VICEMODE:							.byte 0
 TEMPCOLOR:							.byte 0
 CHECKINTERVAL:						.byte 60
-PMUSER:								.fill 12,32
 SEND_ERROR:							.byte 0
 DO_RESTORE_MESSAGE_LINES:			.byte 0
+
+PMUSER:								.fill 12,32
+
+
+RXBUFFER:   						.fill 256,128	// reserved space for incoming data
+TXBUFFER:							.fill 256,128	// reserved space for outgoing data
+													//			
 
 M_CHARBLOCK400:						.fill 256,32 	// reserved memory space to backup the screen 1
 M_CHARBLOCK500:   					.fill 256,32 	// when leaving the main chat screen
@@ -2400,12 +2339,11 @@ P_CHARBLOCK700:   					.fill 256,32 	//
 P_COLBLOCK400:						.fill 256,0 	// screen color information
 P_COLBLOCK500:						.fill 256,0 	// to backup colors when leaving the private chat screen
 P_COLBLOCK600:						.fill 256,0 	// 
-P_COLBLOCK700:						.fill 256,0 	//
+P_COLBLOCK700:						.fill 256,0 	// 2315
 
 //=========================================================================================================
 // MACROS
 //=========================================================================================================
-
 .macro displayText(text,line,column){				//
 													// $f7 = line number
 													// $f8 = column
@@ -2420,7 +2358,7 @@ P_COLBLOCK700:						.fill 256,0 	//
 	lda #>(text)		    						// store the highbyte of the text location in $fc
 	sta $fc			    							// $FC is is a zero page address			
 	jsr !displaytextK-								// Call the displaytext routine
-
+													//
 }													//
 													//
 .macro pushreg(){									//
@@ -2440,11 +2378,10 @@ P_COLBLOCK700:						.fill 256,0 	//
 	pla												// pull the x register from the stack
 	tax												// move it to the x register
 	pla												// pull the acc from the stack
-	plp												// pull the the processor status from the stack													//
-}													//													
-
+	plp												// pull the the processor status from the stack													
+}													//
+													//
 //=========================================================================================================
 //  fill the rest of the cartride space with 0
 //=========================================================================================================
-
 .fill ($8000+CARTRIDGE_SIZE - *),0					//
