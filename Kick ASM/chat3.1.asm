@@ -289,7 +289,7 @@ rts													//
 													//
 	displayText(text_version,24,9)					// Software version info
 	displayText(version,24,17)						// Software version info
-	displayText(version_date,24,21)					// Software version info
+	displayText(version_date,24,22)					// Software version info
 													//
 !keyinput:											// 
 													//
@@ -1301,6 +1301,12 @@ lda VOICE											//
 	lda VICEMODE									// if we are running in simulation mode											
 	cmp #1											// jump to exit without interacting with ESP32									
 	beq !exit+										// yes? Exit the matrix
+													//
+													// if the user is alreday typing a message, do 
+													// not fill in the last user automatically, that is very anoying.
+    lda $d3											// where is the cursor?
+    cmp #0											// if the cursor is NOT on column zero,
+    bne !exit+										// skip this routine and proceed to exit.
 	lda SCREEN_ID									// Load our screen ID	
 	cmp #3											// Are we in the private chat screen?							
 	bne !exit+										// if no, exit routine
@@ -2204,7 +2210,7 @@ text_menu_item_4:					.byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:					.byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:					.byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:						.byte 151; .text "Version";.byte 128
-version:							.byte 151; .text "3.5"; .byte 128
+version:							.byte 151; .text "3.51"; .byte 128
 version_date:						.byte 151; .text "01/2024";.byte 128
 
 text_wifi_menu:						.byte 151; .text "WIFI SETUP"; .byte 128
