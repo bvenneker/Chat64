@@ -1,5 +1,5 @@
 // General info
-// PETSCI KEY CODES : https://sta.c64.org/cbm64petkey.html 
+// PETSCI KEY CODES: https://sta.c64.org/cbm64petkey.html 
 // SCREEN functions: https://sta.c64.org/cbm64scrfunc.html
 //=========================================================================================================
 //	Kick assembler
