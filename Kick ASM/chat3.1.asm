@@ -294,7 +294,7 @@ rts									//
 !keyinput:								// 
 									//
 	jsr $ffe4        						// Call KERNAL routine: Get character from keyboard buffer
-	beq !keyinput-   						// loop if there is none
+//	beq !keyinput-   						// loop if there is none (Theo: Not needed, remmed out)
 	!:cmp #133         						// F1 key pressed?
 	bne !+								// No, next
 	jmp !wifi_setup+						// Yes, go to WiFi setup
@@ -431,7 +431,7 @@ rts									//
 !keyinput:								// At this point the user can select F1 or F7 to Save settings and Test settings, or exit the menu
 									//
 	jsr $ffe4        						// Call KERNAL routine: Get character from keyboard buffer
-//	beq !keyinput-   						// Loop if there is none
+//	beq !keyinput-   						// Loop if there is none (Theo: Not needed, remmed out)
 	cmp #133							// F1 key pressed?
 	beq !save_settings+  						// If true, save the WiFi settings	
 	cmp #136							// F7 key pressed?
@@ -2229,7 +2229,7 @@ text_about_line_1:					.byte 145; .text "Initially developed by Bart Venneker"; 
 text_about_line_2:					.byte 145; .text "as a proof of concept, a new version"; .byte 128
 text_about_line_3:					.byte 145; .text "of CHAT64 is now available to everyone."; .byte 128
 text_about_line_4:					.byte 145; .text "We proudly bring you CHAT64 3.0"; .byte 128
-text_about_line_5:					.byte 145; .text "Made by (mostly) Bart Venneker"; .byte 128
+text_about_line_5:					.byte 145; .text "Made by Bart Venneker"; .byte 128
 text_about_line_6:					.byte 145; .text "and Theo van den Beld in 2023"; .byte 128
 text_about_line_7:					.byte 145; .text ""; .byte 128
 text_about_line_8:					.byte 145; .text "Hardware and software (Open Source)"; .byte 128
