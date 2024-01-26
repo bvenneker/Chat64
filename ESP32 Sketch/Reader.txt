@@ -1,1 +1,2 @@
-
+For PCB revision 2 or lower use C64_Chat_3.1.ino
+For PCB revision 3 and upwards use C64_Chat_3.2.ino
