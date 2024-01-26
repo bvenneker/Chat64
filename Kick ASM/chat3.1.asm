@@ -10,112 +10,112 @@
 //=========================================================================================================
 //	Start of cartridge memory and start parameters
 //=========================================================================================================
-* = $8000											// Start address cartridge
-													//
-	.word	coldstart								// Cartridge cold-start vector dynamic
-	.word	warmstart								// Cartridge warm-start vector dynamic
+* = $8000								// Start address cartridge
+									//
+	.word	coldstart						// Cartridge cold-start vector dynamic
+	.word	warmstart						// Cartridge warm-start vector dynamic
 	.byte	$C3, $C2, $CD, $38, $30					// CBM8O - Cartridge present string
-													//
+									//
 //=========================================================================================================
 //	Cold start procedure
 //=========================================================================================================
-coldstart:											// 
-													//
-//	KERNAL RESET ROUTINE							//
-	sei												// Disable interrupts
-	stx $D016										// Turn on VIC for PAL / NTSC check
-	jsr $FDA3										// IOINIT - Init CIA chips
-	jsr $FD50										// RANTAM - Clear/test system RAM
-	jsr $FD15										// RESTOR - Init KERNAL RAM vectors
-	jsr $FF5B										// CINT   - Init VIC and screen editor
-	cli												// Re-enable interrupts
-	jmp !main_init+									// Jump to main program
-													//
+coldstart:								// 
+									//
+//	KERNAL RESET ROUTINE						//
+	sei								// Disable interrupts
+	stx $D016							// Turn on VIC for PAL / NTSC check
+	jsr $FDA3							// IOINIT - Init CIA chips
+	jsr $FD50							// RANTAM - Clear/test system RAM
+	jsr $FD15							// RESTOR - Init KERNAL RAM vectors
+	jsr $FF5B							// CINT   - Init VIC and screen editor
+	cli								// Re-enable interrupts
+	jmp !main_init+							// Jump to main program
+									//
 //=========================================================================================================
 //	Warm start procedure
 //=========================================================================================================
-warmstart:											//
-													//
-!main_init:  										//
-	lda #128										// Load number 128
-	sta $de00										// write the byte to IO1
+warmstart:								//
+									//
+!main_init:  								//
+	lda #128							// Load number 128
+	sta $de00							// write the byte to IO1
 
-	lda #5 ; sta $9c								// default line color (green)
-	ldx #24											// zero SID sound register (1) 
-	lda #0											// 		
-	sta $d020										// Set black screen
-	sta $d021										// Set black border			
-!clear_sid_loop:									// Clear the SID registers
-	sta $d400, x									//
-	dex												//
-	bne !clear_sid_loop-							//	 
- 													//
-	lda #<(nmi)     								// \
-	sta $0318       								//  \ Load our new nmi vector
-	lda #>(nmi)     								//	/ And replace the old vector to our own nmi routine
-	sta $0319       								// /  	
-	lda #0											// Load 0 into accumulator
-	sta $d020										// Set black screen
-	sta $d021										// Set black border														
-	sta $02 										// store it in zero page address $02
-	sta VICEMODE									// vice mode default is zero	
- 	sta HAVE_M_BACKUP								//
- 	sta HAVE_P_BACKUP								//
- 	sta HAVE_ML_BACKUP								//
- 	lda #60											// Set the check interval. 50 will result in once a second.
- 	sta CHECKINTERVAL								//
- 	jsr !start_screen+								// Call the start screen sub routine first
- 	jsr $E544		 								// Clear screen
- 	lda #23											// Load 23 into accumulator and use it to
- 	sta $D018										// Switch to LOWER CASE	
-	jsr !are_we_in_the_matrix+						// check if we are running inside a simulator (esp32 is disconnected)
-	jsr !callstatus+								// Check the configuration status
-	lda CONFIG_STATUS	 							//
-	cmp #4											// Are we fully configured?
-	bne !mainmenu+									// No, jump to main menu first
- 	jmp !main_chat_screen+							//
- 													//
- !mainmenu: 										//
- 	jmp !mainmenu+									//
-													//
+	lda #5 ; sta $9c						// default line color (green)
+	ldx #24								// zero SID sound register (1) 
+	lda #0								// 		
+	sta $d020							// Set black screen
+	sta $d021							// Set black border			
+!clear_sid_loop:							// Clear the SID registers
+	sta $d400, x							//
+	dex								//
+	bne !clear_sid_loop-						//	 
+ 									//
+	lda #<(nmi)     						// \
+	sta $0318       						//  \ Load our new nmi vector
+	lda #>(nmi)     						//	/ And replace the old vector to our own nmi routine
+	sta $0319       						// /  	
+	lda #0								// Load 0 into accumulator
+	sta $d020							// Set black screen
+	sta $d021							// Set black border														
+	sta $02 							// store it in zero page address $02
+	sta VICEMODE							// vice mode default is zero	
+ 	sta HAVE_M_BACKUP						//
+ 	sta HAVE_P_BACKUP						//
+ 	sta HAVE_ML_BACKUP						//
+ 	lda #60								// Set the check interval. 50 will result in once a second.
+ 	sta CHECKINTERVAL						//
+ 	jsr !start_screen+						// Call the start screen sub routine first
+ 	jsr $E544		 					// Clear screen
+ 	lda #23								// Load 23 into accumulator and use it to
+ 	sta $D018							// Switch to LOWER CASE	
+	jsr !are_we_in_the_matrix+					// check if we are running inside a simulator (esp32 is disconnected)
+	jsr !callstatus+						// Check the configuration status
+	lda CONFIG_STATUS	 					//
+	cmp #4								// Are we fully configured?
+	bne !mainmenu+							// No, jump to main menu first
+ 	jmp !main_chat_screen+						//
+ 									//
+ !mainmenu: 								//
+ 	jmp !mainmenu+							//
+									//
 //=========================================================================================================
 //  Vice Simulation check
 //=========================================================================================================
-!are_we_in_the_matrix:								//
-													// this is to check if a real cartridge is attached
-													// or if we are running in the Vice simulator
-													// 
+!are_we_in_the_matrix:							//
+									// this is to check if a real cartridge is attached
+									// or if we are running in the Vice simulator
+									// 
 	jsr !wait_for_ready_to_receive+					//
-	lda #230										// Load number #230 (to check if the esp32 is connected)
-	sta $de00										// write the byte to IO1
-													//
-													// Send the ROM version to the cartrdige 
-	!:	ldx #1										// x will be our index when we loop over the version text, we start at 1 to skip the first color byte
-!sendversion:   									//
+	lda #230							// Load number #230 (to check if the esp32 is connected)
+	sta $de00							// write the byte to IO1
+									//
+									// Send the ROM version to the cartrdige 
+	!:	ldx #1							// x will be our index when we loop over the version text, we start at 1 to skip the first color byte
+!sendversion:   							//
 	jsr !wait_for_ready_to_receive+					// wait for ready to receive (bit D7 goes high)	    
-	lda version,x									// load a byte from the version text with index x
+	lda version,x							// load a byte from the version text with index x
 	sta $de00 	                 	    			// send it to IO1	
-	cmp #128    									// if the last byte was 128, the buffer is finished                   
-	beq !+											// exit in that case     
-	inx												// increase the x index
-	jmp !sendversion-								// jump back to send the next byte
-	    											//
-!:	lda #100										// Delay 100... hamsters
-	sta DELAY										// Store 100 in the DELAY variable
-	jsr !delay+										// and call the delay subroutine
-													//
-	lda $df00										// read from IO2. 	
-	cmp #128										//
-													//	
-	beq !exit+										// if vice mode, we do not try to communicate with the
-	lda #1											// cartridge because it will result in error
-	sta VICEMODE									//
-	jsr !sounderror+								//
-!exit:												//
-	lda #100										// Delay 100... hamsters
-	sta DELAY										// Store 100 in the DELAY variable
-	jsr !delay+										// and call the delay subroutine
-	rts												//
+	cmp #128    							// if the last byte was 128, the buffer is finished                   
+	beq !+								// exit in that case     
+	inx								// increase the x index
+	jmp !sendversion-						// jump back to send the next byte
+	    								//
+!:	lda #100							// Delay 100... hamsters
+	sta DELAY							// Store 100 in the DELAY variable
+	jsr !delay+							// and call the delay subroutine
+									//
+	lda $df00							// read from IO2. 	
+	cmp #128							//
+									//	
+	beq !exit+							// if vice mode, we do not try to communicate with the
+	lda #1								// cartridge because it will result in error
+	sta VICEMODE							//
+	jsr !sounderror+						//
+!exit:									//
+	lda #100							// Delay 100... hamsters
+	sta DELAY							// Store 100 in the DELAY variable
+	jsr !delay+							// and call the delay subroutine
+	rts								//
 //=========================================================================================================
 //    PRIVATE CHAT SCREEN
 //=========================================================================================================												
