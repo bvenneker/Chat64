@@ -7,10 +7,9 @@
 
 Preferences settings;
 
-String SwVersion = "3.1";
+String SwVersion = "3.3";
 
-bool invert_Reset = false; // true for pcb rev 2.0 and up
-
+bool invert_Reset = true; // true for pcb rev 2.0 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -43,7 +42,7 @@ volatile unsigned long tempMessageID =0;
 String msgtype="public";                          // do not change this!
 String users="";                                  // a list of all users on this server (yes, this is a long String)
 String tempMessageTp ="";
-
+String urgentMessage ="" ; 
 volatile bool dataFromC64 = false;
 volatile bool io2 = false;
 char inbuffer[250];                               // a character buffer for incomming data
@@ -328,7 +327,10 @@ void Task1code( void * parameter) {
   
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg+ "&type=" + msgtype + "&version=" + SwVersion;
-   
+    #ifdef debug
+       Serial.print("lastmessage=");
+       Serial.println(lastmessage);
+    #endif
     // Send HTTP POST request
     int httpResponseCode = http.POST(httpRequestData);    
     if (httpResponseCode == 200) {                                        // httpResponseCode should be 200
@@ -359,6 +361,10 @@ void Task1code( void * parameter) {
         }
         
         if (newid){    
+          #ifdef debug
+            Serial.print("new lastmessage id=");
+            Serial.println(tempMessageID);
+          #endif
           tempMessageID = newMessageId;
           tempMessageTp = msgtype;        
           String message=doc["message"];
@@ -411,13 +417,11 @@ void send_heartbeat(){
 // *************************************************
 //  void to send a message to the server
 // *************************************************
-void SendMessageToServer(String Encoded, String RecipientName) {
-
-  //const char* serverName = "http:///c64chat/insertMessage.php";
+bool SendMessageToServer(String Encoded, String RecipientName) {
   String serverName = "http://" + server + "/insertMessage.php";
   WiFiClient client;
   HTTPClient http;
-
+  bool result = false;
   // Your Domain name with URL path or IP address with path
   http.begin(client, serverName);
 
@@ -433,20 +437,33 @@ void SendMessageToServer(String Encoded, String RecipientName) {
   // httpResponseCode should be 200
   if (httpResponseCode > 0) {
     String ret = http.getString();
+    ret.trim();
     #ifdef debug
       Serial.print("HTTP Response code: ");
       Serial.println(httpResponseCode);
-      Serial.println(ret);
+      Serial.print("Return code from php page: ");
+      Serial.print(ret);
     #endif
+    if (ret=="0") {
+      // no error on database level
+      result=true;
+      #ifdef debug
+      Serial.println(" = no error.");
+      #endif
+    } else  {
+      // some error on database level or php
+      result=false;
+      
+      #ifdef debug
+      Serial.println(" = some error!!!");
+      #endif
+    }
+
   }
-  else {
-    #ifdef debug
-      Serial.print("Error code in SendMessageToServer: ");
-      Serial.println(httpResponseCode);
-    #endif
-  }
+
   // Free resources
   http.end();
+  return result;
 }
 // *************************************************
 //  String function to get the userlist from the database
@@ -599,7 +616,7 @@ void loop() {
       if (users.length()<1) fill_userlist();
 
       msgtype="public";       
-      if (haveMessage==1){             
+      if (haveMessage==1 or haveMessage==3){             
         // copy the msgbuffer to the outbuffer
         for (int x=0;x<msgbuffersize;x++){ outbuffer[x]=msgbuffer[x]; }    
         
@@ -609,11 +626,12 @@ void loop() {
         // and send the outbuffer
         send_out_buffer_to_C64(); 
         // store the new message id
-        lastmessage = tempMessageID;
-        settings.begin("mysettings", false);
-        settings.putULong("lastmessage", lastmessage);
-        settings.end(); 
-
+        if (haveMessage==1){
+          lastmessage = tempMessageID;
+          settings.begin("mysettings", false);
+          settings.putULong("lastmessage", lastmessage);
+          settings.end(); 
+        }
         haveMessage=0;
         }
         else { // No message for now :-(
@@ -653,9 +671,37 @@ void loop() {
       int buflen = toEncode.length() + 1;
       char buff[buflen];
       toEncode.toCharArray(buff, buflen);
-      String Encoded = my_base64_encode(buff, buflen);      
-      SendMessageToServer(Encoded, RecipientName);
+      String Encoded = my_base64_encode(buff, buflen);     
+      // Now send it with retry!
+      bool sc=false;
+      int retry = 0;
+      while (sc==false and retry < 5){
+        sc = SendMessageToServer(Encoded, RecipientName);
+        if (!sc) {
+          delay(1000);
+          retry = retry + 1;
+        }
+      }
+      if (!sc){
+        urgentMessage =" System:        ERROR sending the message";
+      }
     } 
+
+// ------------------------------------------------------------------------------
+// Urgent message
+// ------------------------------------------------------------------------------
+if (urgentMessage !="" and haveMessage==0) {  
+    urgentMessage = "  " + urgentMessage ;
+    msgbuffersize=urgentMessage.length() +1;
+    urgentMessage.toCharArray(msgbuffer, msgbuffersize);
+    msgbuffer[0]=1;
+    msgbuffer[1]=143;
+    msgbuffer[2]=146;
+    //msgbuffer[urgentMessage.length()]=128;
+    urgentMessage ="";
+    haveMessage=3;
+    
+}
 
     // ------------------------------------------------------------------------------
     // start byte 252 = C64 sends the new wifi password
@@ -729,7 +775,7 @@ void loop() {
     if ((ch == 247)) {
       msgtype="private"; 
       pmCount=0;     
-      if (haveMessage==2){             
+      if (haveMessage==2 or haveMessage==3){             
         // copy the msgbuffer to the outbuffer
         for (int x=0;x<msgbuffersize;x++){outbuffer[x]=msgbuffer[x];}        
 
@@ -738,11 +784,13 @@ void loop() {
         
         // and send the outbuffer           
         send_out_buffer_to_C64(); 
-        // store the new message id
-        lastprivmsg = tempMessageID;
-        settings.begin("mysettings", false);
-        settings.putULong("lastprivmsg", lastprivmsg);
-        settings.end(); 
+        if (haveMessage==2) {
+          // store the new message id
+          lastprivmsg = tempMessageID;
+          settings.begin("mysettings", false);
+          settings.putULong("lastprivmsg", lastprivmsg);
+          settings.end(); 
+        }
         haveMessage=0;
         }
         else { // no private messages :-(
