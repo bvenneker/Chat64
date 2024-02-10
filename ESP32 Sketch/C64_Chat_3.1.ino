@@ -3,7 +3,7 @@
 #include <Preferences.h>
 #include "ArduinoJson.h"
 
-//#define debug 
+#define debug 
 
 Preferences settings;
 
@@ -45,6 +45,7 @@ String tempMessageTp ="";
 String urgentMessage ="" ; 
 volatile bool dataFromC64 = false;
 volatile bool io2 = false;
+volatile bool updateUserlist=false;
 char inbuffer[250];                               // a character buffer for incomming data
 int  inbuffersize = 0;
 char outbuffer[250];                              // a character buffer for outgoing data
@@ -59,6 +60,7 @@ int it = 0;
 volatile byte ch = 0;
 volatile bool getMessage=false;
 TaskHandle_t Task1;
+
 
 // ********************************
 // **        OUTPUTS             **
@@ -239,8 +241,7 @@ void setup() {
       Serial.println(server);
     #endif
 
-    // get the user list from the server (just the names, not the on-line status)
-    //fill_userlist();    
+     
   } else {
     // if there is no wifi, the user can change the credentials in cartridge menu
     #ifdef debug 
@@ -313,8 +314,12 @@ void Task1code( void * parameter) {
       if (millis() > heartbeat+25000) {   // while we do nothing we send a heartbeat signal to the server 
         heartbeat=millis();               // so that the web server knows you are still on line
         send_heartbeat();                 // heartbeat repeats every 25 seconds
-        }            
+        }
+      if (updateUserlist) {
+        updateUserlist=false;
+        fill_userlist();
       }
+    }
                                           // when the getMessage variable goes True, we drop out of the wait loop
     getMessage=false;                     // first reset the getMessage variable back to false.
 
@@ -327,10 +332,6 @@ void Task1code( void * parameter) {
   
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg+ "&type=" + msgtype + "&version=" + SwVersion;
-    #ifdef debug
-       Serial.print("lastmessage=");
-       Serial.println(lastmessage);
-    #endif
     // Send HTTP POST request
     int httpResponseCode = http.POST(httpRequestData);    
     if (httpResponseCode == 200) {                                        // httpResponseCode should be 200
@@ -612,9 +613,11 @@ void loop() {
     // ------------------------------------------------------------------------------     
     if ((ch == 254)) {
       
-      // if the user list is empty, get the list (this happens only once)
-      if (users.length()<1) fill_userlist();
-
+      // if the user list is empty, get the list
+      // also refresh the userlist when we switch from public to private messaging and vice versa
+      if (users.length()<1 or msgtype!="public") updateUserlist=true ;
+      
+      
       msgtype="public";       
       if (haveMessage==1 or haveMessage==3){             
         // copy the msgbuffer to the outbuffer
@@ -687,22 +690,6 @@ void loop() {
       }
     } 
 
-// ------------------------------------------------------------------------------
-// Urgent message
-// ------------------------------------------------------------------------------
-if (urgentMessage !="" and haveMessage==0) {  
-    urgentMessage = "  " + urgentMessage ;
-    msgbuffersize=urgentMessage.length() +1;
-    urgentMessage.toCharArray(msgbuffer, msgbuffersize);
-    msgbuffer[0]=1;
-    msgbuffer[1]=143;
-    msgbuffer[2]=146;
-    //msgbuffer[urgentMessage.length()]=128;
-    urgentMessage ="";
-    haveMessage=3;
-    
-}
-
     // ------------------------------------------------------------------------------
     // start byte 252 = C64 sends the new wifi password
     // ------------------------------------------------------------------------------
@@ -773,6 +760,11 @@ if (urgentMessage !="" and haveMessage==0) {
     // start byte 247 = C64 triggers call to the website for new private message
     // ------------------------------------------------------------------------------
     if ((ch == 247)) {
+      
+      // if the user list is empty, get the list
+      // also refresh the userlist when we switch from public to private messaging and vice versa
+      if (users.length()<1 or msgtype!="private") updateUserlist=true;
+
       msgtype="private"; 
       pmCount=0;     
       if (haveMessage==2 or haveMessage==3){             
@@ -1047,7 +1039,23 @@ if (urgentMessage !="" and haveMessage==0) {
       // your code here :-)
       sendByte(128);      
     }
-// ------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------------
+    // Urgent message
+    // ------------------------------------------------------------------------------
+    if (urgentMessage !="" and haveMessage==0) {  
+        urgentMessage = "  " + urgentMessage ;
+        msgbuffersize=urgentMessage.length() +1;
+        urgentMessage.toCharArray(msgbuffer, msgbuffersize);
+        msgbuffer[0]=1;
+        msgbuffer[1]=143;
+        msgbuffer[2]=146;
+        //msgbuffer[urgentMessage.length()]=128;
+        urgentMessage ="";
+        haveMessage=3;
+        
+    }
 
   }  // end of "if (dataFromC64)"
 
