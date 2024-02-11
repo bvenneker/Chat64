@@ -964,13 +964,16 @@ jmp !f7_to_exit-									//
 	lda #0; sta $00cc   							// Show cursor 
 	lda #5           								// Load 5 in accumulator (petscii code for color white)
 	jsr $ffd2        								// Output that petscii code to screen to change the cursor to white													
-//	jsr !ask_last_pm_sender+						//
+
 			  										//
 !keyinput:											//
     jsr !check_for_messages+						//				    
   !:jsr $ffe4										// Call kernal routine: Get character from keyboard buffer    
 	beq !keyinput-   								// Loop if there is none														
-	cmp #221										// Shift Minus gives a vertical bar, we replace it with underscore
+	cmp #141										// Shift Return or CMB Return will send the messaga immediately
+	bne !+											// 
+	rts												//
+	!:cmp #221										// Shift Minus gives a vertical bar, we replace it with underscore
 	bne !+											// If it is any other key, skip to the next !: marker
 	lda #228										// Change the character into an underscore
 	!:cmp #133         								// F1 key pressed?      
