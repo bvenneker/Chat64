@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.4";
+String SwVersion = "3.5";
 
 bool invert_Reset = true;  // true for pcb rev 2.0 and up
 
@@ -54,13 +54,13 @@ volatile int msgbuffersize = 0;
 char textbuffer[10];  // a small buffer to capture the start of a message
 char textsize = 0;
 volatile int haveMessage = 0;
-unsigned long message_timer = 0;
 int it = 0;
 volatile byte ch = 0;
 volatile bool getMessage = false;
 TaskHandle_t Task1;
-
-
+String userPages[6];
+volatile bool refreshUserPages = false;
+volatile unsigned long last_up_refresh=millis()+5000;
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -266,6 +266,7 @@ void setup() {
 // ***************************************************************
 //   get the list of users from the webserver
 // ***************************************************************
+
 void fill_userlist() {
   users = "";
   String serverName = "http://" + server + "/list_users.php";
@@ -280,11 +281,6 @@ void fill_userlist() {
 
   // Send HTTP POST request
   int httpResponseCode = http.POST(httpRequestData);
-#ifdef debug
-  Serial.print("response code fill user list= ");
-  Serial.println(httpResponseCode);
-#endif
-
   String result = "0";
 
   if (httpResponseCode == 200) {
@@ -313,15 +309,20 @@ void Task1code(void* parameter) {
   for (;;) {  // this is an endless loop
 
     unsigned long heartbeat = millis();
-    while (getMessage == false) {          // this is a wait loop
-      delay(10);                           // this task does nothing until the variable getMessage becomes true
-      if (millis() > heartbeat + 25000) {  // while we do nothing we send a heartbeat signal to the server
-        heartbeat = millis();              // so that the web server knows you are still on line
-        send_heartbeat();                  // heartbeat repeats every 25 seconds
+    while (getMessage == false) {           // this is a wait loop
+      delay(10);                            // this task does nothing until the variable getMessage becomes true
+      if (millis() > heartbeat + 25000) {   // while we do nothing we send a heartbeat signal to the server
+        heartbeat = millis();               // so that the web server knows you are still on line
+        send_heartbeat();                   // heartbeat repeats every 25 seconds
+        refreshUserPages=true;              // and refresh the user pages (who is online)
       }
       if (updateUserlist) {
         updateUserlist = false;
         fill_userlist();
+      }
+      if (refreshUserPages) {
+        refreshUserPages = false;
+        get_full_userlist();
       }
     }
     // when the getMessage variable goes True, we drop out of the wait loop
@@ -469,9 +470,18 @@ bool SendMessageToServer(String Encoded, String RecipientName) {
   http.end();
   return result;
 }
-// *************************************************
+// *******************************************************
 //  String function to get the userlist from the database
-// *************************************************
+// *******************************************************
+void get_full_userlist() {
+  // this is for the user list in the menu (Who is on line?)
+  // The second core calls this webpage so the main thread does not suffer performance
+  for (int p = 0; p < 6; p++) {
+    userPages[p] = getUserList(p);    
+  }
+  last_up_refresh = millis();
+}
+
 String getUserList(int page) {
   String serverName = "http://" + server + "/list_users.php";
   WiFiClient client;
@@ -481,10 +491,8 @@ String getUserList(int page) {
   String httpRequestData = "regid=" + regID + "&page=" + page + "";
   int httpResponseCode = http.POST(httpRequestData);
   String result = "0";
-  if (httpResponseCode == 200) {
-    result = http.getString();
-    result.trim();
-  } else result = "communication error";
+  result = http.getString();
+  result.trim();
   http.end();
   return result;
 }
@@ -1052,6 +1060,7 @@ void loop() {
           Serial.println("are we in the Matrix?");
 #endif
           sendByte(128);
+          refreshUserPages=true;
           break;
         }
       case 229:
@@ -1125,18 +1134,15 @@ void loop() {
       static int page = 0;
       if (ch == 234) page = 0;
 
-      String ul1 = getUserList(page);
+      String ul1 = userPages[page];
       send_String_to_c64(ul1);
       page = page + 1;
     }
 
   }  // end of "if (dataFromC64)"
 
-  else {
-    if (millis() > message_timer) {
-      message_timer = millis() + 2500;
-    }
-  }
+  if (millis() > last_up_refresh + 30000) refreshUserPages=true;
+
 }  // end of main loop
 
 
