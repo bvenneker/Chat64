@@ -59,6 +59,7 @@ TaskHandle_t Task1;
 String userPages[6];
 volatile bool refreshUserPages = false;
 volatile unsigned long last_up_refresh=millis()+5000;
+String romVersion="";
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -341,7 +342,7 @@ void Task1code(void* parameter) {
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
 
     // Prepare your HTTP POST request data
-    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion;
+    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion +"&rom=" + romVersion;
     // Send HTTP POST request
     int httpResponseCode = http.POST(httpRequestData);
     if (httpResponseCode == 200) {                       // httpResponseCode should be 200
@@ -1066,6 +1067,14 @@ void loop() {
 #endif
           sendByte(128);
           refreshUserPages=true;
+          // receive the ROM version number
+          receive_buffer_from_C64();          
+          char bns[inbuffersize];
+          strncpy(bns, inbuffer, inbuffersize + 1);
+          String ns = bns;
+          romVersion = ns;
+          Serial.print("ROM Version=");
+          Serial.println(romVersion);
           break;
         }
       case 229:
