@@ -1,2 +1,7 @@
+3.1 is the current version.
 
-For PCB revision 2 and upwards use C64_Chat_3.1.ino
+3.2 is the new version. You will need to re-register if you upgrade to 3.2 because the MAC Address changed. The identifier we used for mac address was not the real mac address. Even with only a handful of units in the field, this already caused an issue. That is fixed in this version.
+Also fixed/changed in this version:
+- nothing so far
+
+
