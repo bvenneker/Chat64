@@ -7,9 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.5";
-
-bool invert_Reset = true;  // true for pcb rev 2.0 and up
+String SwVersion = "3.6";
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -61,6 +59,8 @@ TaskHandle_t Task1;
 String userPages[6];
 volatile bool refreshUserPages = false;
 volatile unsigned long last_up_refresh=millis()+5000;
+String romVersion="";
+
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -140,8 +140,12 @@ void setup() {
     &Task1,    /* Task handle. */
     0);        /* Core where the task should run */
 
-  // get the chip id, this is used to identify the cartridge.
-  macaddress = String((uint32_t)ESP.getEfuseMac(), HEX);
+  // get the wifi mac address, this is used to identify the cartridge.
+  macaddress = WiFi.macAddress();
+  macaddress.replace(":","");
+  macaddress.toLowerCase();
+  macaddress = macaddress.substring(4);
+
 
   // add a checksum to the mac address.
   byte data[4];
@@ -154,7 +158,10 @@ void setup() {
     data[i++] = f;
   }
   String crc8 = String(checksum(data, 4), HEX);
+
+  if (crc8.length()==1) crc8="0" + crc8;
   macaddress += crc8;
+  
 
   // init settings object to store settings in the eeprom
   settings.begin("mysettings", false);
@@ -207,7 +214,7 @@ void setup() {
   pinMode(oC64D7, OUTPUT);
   digitalWrite(oC64D7, LOW);
   pinMode(oC64RST, OUTPUT);
-  digitalWrite(oC64RST, invert_Reset);
+  digitalWrite(oC64RST, HIGH);
   pinMode(oC64NMI, OUTPUT);
   digitalWrite(oC64NMI, LOW);
   pinMode(pload, OUTPUT);
@@ -217,9 +224,9 @@ void setup() {
 
 
   // Reset the C64
-  digitalWrite(oC64RST, !invert_Reset);
+  digitalWrite(oC64RST, LOW);
   delay(250);
-  digitalWrite(oC64RST, invert_Reset);
+  digitalWrite(oC64RST, HIGH);
 
   // try to connect to wifi for 5 seconds
   WiFi.begin(ssid.c_str(), password.c_str());
@@ -336,7 +343,7 @@ void Task1code(void* parameter) {
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
 
     // Prepare your HTTP POST request data
-    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion;
+    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion +"&rom=" + romVersion;
     // Send HTTP POST request
     int httpResponseCode = http.POST(httpRequestData);
     if (httpResponseCode == 200) {                       // httpResponseCode should be 200
@@ -1061,6 +1068,14 @@ void loop() {
 #endif
           sendByte(128);
           refreshUserPages=true;
+          // receive the ROM version number
+          receive_buffer_from_C64();          
+          char bns[inbuffersize];
+          strncpy(bns, inbuffer, inbuffersize + 1);
+          String ns = bns;
+          romVersion = ns;
+          Serial.print("ROM Version=");
+          Serial.println(romVersion);
           break;
         }
       case 229:
