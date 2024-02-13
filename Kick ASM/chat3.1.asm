@@ -2261,7 +2261,7 @@ message_start: 						.byte 21,20,19,18,17,16,15
 * = $9c00 "Constants_page5"  
 text_help_private4:					.byte 147; .text "Use F5 to switch between the public"; .byte 128
 text_help_private5:					.byte 147; .text "and private message screen."; .byte 128
-titletext:							.byte 150; .text "made by bart and theo 2023"; .byte 128
+titletext:							.byte 150; .text "made by bart and theo (c) 2023"; .byte 128
 text_unreg_error:					.byte 146; .text "Error: Unregistered Cartridge"; .byte 128
 empty_line:							.text "                                        "; .byte 128
 text_error_vice_mode:				.byte 146; .text "Cartridge not installed."; .byte 128
