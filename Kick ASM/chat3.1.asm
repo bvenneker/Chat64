@@ -2253,12 +2253,12 @@ text_about_line_10:					.byte 145; .text "https://github.com/bvenneker/Chat64"; 
 text_about_footer:					.byte 147; .text "[ F7 ] Exit to main menu"; .byte 128
 text_account_menu:					.byte 151; .text "ACCOUNT SETUP" ; .byte 128
 text_account_mac:					.byte 145; .text "Mac address:"; .byte 128
-text_account_regid: 				.byte 145; .text "Registration id:"; .byte 128
-text_account_nick_name:				.byte 145; .text "Nick Name:" ; .byte 128	
-text_settings_saved:				.byte 157; .text "Settings Saved"; .byte 128
+text_account_regid: 					.byte 145; .text "Registration id:"; .byte 128
+text_account_nick_name:					.byte 145; .text "Nick Name:" ; .byte 128	
+text_settings_saved:					.byte 157; .text "Settings Saved"; .byte 128
 
 * = $9b00  "Constants_page4" 
-text_account_menu_item_2:			.byte 147; .text "[ F6 ] Reset to factory defaults" ; .byte 128		
+text_account_menu_item_2:				.byte 147; .text "[ F6 ] Reset to factory defaults" ; .byte 128		
 text_account_shure:					.byte 146; .text "Are you shure? press [ F4 ] to confirm"; .byte 128		
 text_reset_shure:					.byte 146; .text "Clear all settings?"  ; .byte 128
 text_anykey_exit:					.byte 146; .text "Press any other key to exit" ; .byte 128
@@ -2271,7 +2271,7 @@ message_start: 						.byte 21,20,19,18,17,16,15
 * = $9c00 "Constants_page5"  
 text_help_private4:					.byte 147; .text "Use F5 to switch between the public"; .byte 128
 text_help_private5:					.byte 147; .text "and private message screen."; .byte 128
-titletext:							.byte 150; .text "made by bart and theo 2023"; .byte 128
+titletext:						.byte 150; .text "made by bart and theo in 2023"; .byte 128
 text_unreg_error:					.byte 146; .text "Error: Unregistered Cartridge"; .byte 128
 empty_line:							.text "                                        "; .byte 128
 text_error_vice_mode:				.byte 146; .text "Cartridge not installed."; .byte 128
@@ -2316,17 +2316,17 @@ HOME_LINE:							.byte 0			// the start line of the text input box
 HOME_COLM:							.byte 0			// the start column of the text input box
 LIMIT_LINE:							.byte 0			// the end line of the text input box 
 LIMIT_COLM:							.byte 0			// the end column of the text input box
-CLEAR_FIELD_FLAG:					.byte 0			// a variable to indicate we want to clean the textfield when we start typing, used in the menus
-SCREEN_ID:          				.byte 0			// variable for the menu id, this changes the behaviour of the text input routine
-CONFIG_STATUS:						.byte 0			// variable to store the caonfiguration status
+CLEAR_FIELD_FLAG:						.byte 0			// a variable to indicate we want to clean the textfield when we start typing, used in the menus
+SCREEN_ID:          						.byte 0			// variable for the menu id, this changes the behaviour of the text input routine
+CONFIG_STATUS:							.byte 0			// variable to store the caonfiguration status
 PITCH:								.byte 0 		// variable for sound pitch
 VOICE:								.byte 0			//
 DELAY:								.byte 0			//
 RXINDEX:							.byte 0			// index for when we recieve data
 RXFULL:								.byte 0			// indicator if the buffer contains a complete message
-HAVE_M_BACKUP:						.byte 0
-HAVE_P_BACKUP:						.byte 0
-HAVE_ML_BACKUP:						.byte 0
+HAVE_M_BACKUP:							.byte 0
+HAVE_P_BACKUP:							.byte 0
+HAVE_ML_BACKUP:							.byte 0
 PAGE:								.byte 0
 COLOR:								.byte 0
 LINE_COLOR:							.byte 0
@@ -2335,14 +2335,14 @@ TIMER2:								.byte 0
 MESSAGELEN:							.byte 0
 VICEMODE:							.byte 0
 TEMPCOLOR:							.byte 0
-CHECKINTERVAL:						.byte 60
+CHECKINTERVAL:							.byte 60
 SEND_ERROR:							.byte 0
-DO_RESTORE_MESSAGE_LINES:			.byte 0
+DO_RESTORE_MESSAGE_LINES:					.byte 0
 PMUSER:								.fill 12,32
 CURSORCOLOR:							.byte 0
 
 * = $3200 "RXBUFFER" virtual
-RXBUFFER:   						.fill 256,128	// reserved space for incoming data
+RXBUFFER:   							.fill 256,128	// reserved space for incoming data
 * = $3300 "TXBUFFER" virtual
 TXBUFFER:							.fill 256,128	// reserved space for outgoing data
 													//			
