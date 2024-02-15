@@ -45,6 +45,7 @@ warmstart:									//
 	lda #0									// 		
 	sta $d020								// Set black screen
 	sta $d021								// Set black border			
+
 !clear_sid_loop:							// Clear the SID registers
 	sta $d400, x							//
 	dex										//
@@ -64,8 +65,9 @@ warmstart:									//
  	sta HAVE_ML_BACKUP						//
  	lda #60									// Set the check interval. 50 will result in once a second.
  	sta CHECKINTERVAL						//
- 	jsr !start_screen+						// Call the start screen sub routine first
+  	jsr !start_screen+						// Call the start screen sub routine first
  	jsr $E544		 						// Clear screen
+ 	
  	lda #23									// Load 23 into accumulator and use it to
  	sta $D018								// Switch to LOWER CASE	
 	jsr !are_we_in_the_matrix+				// check if we are running inside a simulator (esp32 is disconnected)
@@ -146,8 +148,9 @@ warmstart:									//
 	bne !+									//	
 	displayText(text_error_vice_mode,3,8)				//
 									//
-!: 	lda #1								// 
- 	sta $0286							// set current color to 1 (white)
+!: 
+// 	lda #1								// 
+// 	sta $0286							// set current color to 1 (white)
 									//
  	lda #0								// Set the limits to where the cursor can travel  
 	sta HOME_COLM       						// store 0 into home_column variable, so the cursor can not go below 0
@@ -220,6 +223,7 @@ warmstart:									//
     beq !+								// if the color stays the same, we do not add it to the buffer, only the color changes are important
     sta TXBUFFER,y							// Store it in the buffer
     sta COLOR								// also update COLOR variable with the new color value 
+	
     iny									// increase the TXBUFFER index
 									//
 !:  lda $770,x								// read the character screen code from screen RAM
@@ -230,6 +234,11 @@ warmstart:									//
     bne !loop-    							// continue to loop while x < message length
   									//
 !send:									//
+	lda COLOR
+	and #15
+	tax
+	lda petsciColors,x
+	sta CURSORCOLOR
 	lda #128							// load byte 128 in the accumulator
 	sta TXBUFFER,y							// and put it in the buffer as an end marker
 									//
@@ -962,7 +971,7 @@ jmp !f7_to_exit-									//
 	ldy HOME_COLM    								// Select column
 	jsr $fff0       								// Set cursor	
 	lda #0; sta $00cc   							// Show cursor 
-	lda #5           								// Load 5 in accumulator (petscii code for color white)
+	lda CURSORCOLOR    								// Load 5 in accumulator (petscii code for color white)
 	jsr $ffd2        								// Output that petscii code to screen to change the cursor to white													
 
 			  										//
@@ -1865,7 +1874,8 @@ rts
     jsr !delay+ 									//
     jsr $ffe4        								// get character from keyboard buffer
     beq !animate_stars-   							// loop if there is none    
-
+	lda #5											// 
+ 	sta CURSORCOLOR									// set current color to 1 (white)
     rts												// Return to caller   
  													//
 //=========================================================================================================
@@ -2261,7 +2271,7 @@ message_start: 						.byte 21,20,19,18,17,16,15
 * = $9c00 "Constants_page5"  
 text_help_private4:					.byte 147; .text "Use F5 to switch between the public"; .byte 128
 text_help_private5:					.byte 147; .text "and private message screen."; .byte 128
-titletext:							.byte 150; .text "made by bart and theo (c) 2023"; .byte 128
+titletext:							.byte 150; .text "made by bart and theo 2023"; .byte 128
 text_unreg_error:					.byte 146; .text "Error: Unregistered Cartridge"; .byte 128
 empty_line:							.text "                                        "; .byte 128
 text_error_vice_mode:				.byte 146; .text "Cartridge not installed."; .byte 128
@@ -2293,7 +2303,7 @@ text_F7_exit:						.byte 147; .text "[ F7 ] Exit"; .byte 128
 screen_lines_low:  					.byte $00,$28,$50,$78,$A0,$C8,$F0,$18,$40,$68,$90,$b8,$e0,$08,$30,$58,$80,$a8,$d0,$f8,$20,$48,$70,$98,$c0
 screen_lines_high: 					.byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,$07,$07
 color_lines_high:  					.byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db
-
+petsciColors:						.byte $05,$05,$1c,$9f,$9c,$1e,$1f,$9e,$81,$95,$96,$97,$98,$99,$9a,$9b
 
 //=========================================================================================================
 // VARIABLE BUFFERS
@@ -2329,6 +2339,7 @@ CHECKINTERVAL:						.byte 60
 SEND_ERROR:							.byte 0
 DO_RESTORE_MESSAGE_LINES:			.byte 0
 PMUSER:								.fill 12,32
+CURSORCOLOR:							.byte 0
 
 * = $3200 "RXBUFFER" virtual
 RXBUFFER:   						.fill 256,128	// reserved space for incoming data
