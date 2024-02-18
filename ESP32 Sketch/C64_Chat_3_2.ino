@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.6";
+String SwVersion = "3.7";
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -60,11 +60,13 @@ String userPages[6];
 volatile bool refreshUserPages = false;
 volatile unsigned long last_up_refresh=millis()+5000;
 String romVersion="";
+volatile bool mLEDstatus=false;
 // ********************************
 // **        OUTPUTS             **
 // ********************************
 // see http://www.bartvenneker.nl/index.php?art=0030
 // for usable io pins!
+
 #define oC64D0 GPIO_NUM_5   // data bit 0 for data from the ESP32 to the C64
 #define oC64D1 GPIO_NUM_33  // data bit 1 for data from the ESP32 to the C64
 #define oC64D2 GPIO_NUM_14  // data bit 2 for data from the ESP32 to the C64
@@ -79,6 +81,8 @@ String romVersion="";
 #define CLED GPIO_NUM_4      // led on cartridge
 #define sclk GPIO_NUM_25     // serial clock signal to the shift register
 #define pload GPIO_NUM_16    // parallel load signal to the shift register
+
+#define mLED GPIO_NUM_2   // Internal LED
 
 // ********************************
 // **        INPUTS             **
@@ -99,6 +103,7 @@ void IRAM_ATTR isr_io1() {
                               // make it low so the C64 will not send the next byte
                               // until we are ready for it
   ch = 0;
+  mLEDstatus=true;
   digitalWrite(pload, HIGH);  // stop loading parallel data and enable shifting serial data
   ch = shiftIn(sdata, sclk, MSBFIRST);
   dataFromC64 = true;
@@ -201,6 +206,8 @@ void setup() {
   attachInterrupt(resetSwitch, isr_reset, FALLING);  // interrupt for reset button
 
   // define outputs
+  pinMode(mLED, OUTPUT);
+  digitalWrite(mLED, LOW);
   pinMode(CLED, OUTPUT);
   digitalWrite(CLED, LOW);
   pinMode(oC64D0, OUTPUT);
@@ -476,6 +483,7 @@ bool SendMessageToServer(String Encoded, String RecipientName) {
   http.end();
   return result;
 }
+
 // *******************************************************
 //  String function to get the userlist from the database
 // *******************************************************
@@ -589,7 +597,17 @@ void ConnectivityCheck() {
 // ******************************************************************************
 // Main loop
 // ******************************************************************************
+unsigned long ledtimer =0;
 void loop() {
+  if (mLEDstatus){
+    gpio_set_level(mLED, HIGH);
+    ledtimer = millis() + 100;
+    mLEDstatus=false;
+  }
+
+  if (ledtimer < millis()) {
+    gpio_set_level(mLED, LOW);   
+  }
 
   gpio_set_level(oC64D7, HIGH);
   if (dataFromC64) {
