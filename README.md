@@ -13,8 +13,12 @@ New versions of the boards are being designed as a flaw was discovered, resultin
 
 ![DevBoard](/Artwork/devrev28.png)
 
-If you like our project and want to make a donation, please feel free to do so by unsing the following button.
+If you like our project and want to make a donation, please feel free to do so by using the following button.
 
+[![Donate](Artwork\paypal_donate.png)](https://www.paypal.com/donate?token=sVUJWUozTAJGfD-OZDfTi14UW3HNgyHZ6DoBVbhWsuBZs75e19n5owaXz7q3mEBnWwirD8HhmM4M91Ft)
+
+
+---
 
 
 By Bart Venneker and Theo van den Beld
