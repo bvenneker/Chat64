@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.59";
+String SwVersion = "3.54";
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -66,7 +66,7 @@ String romVersion = "0.0";
 volatile bool mLEDstatus = false;
 volatile bool fullpage = true;
 char fullpagetext[2500];
- 
+
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -74,7 +74,7 @@ char fullpagetext[2500];
 // for usable io pins!
 
 #define oC64D0 GPIO_NUM_5   // data bit 0 for data from the ESP32 to the C64
-#define oC64D1 GPIO_NUM_33  // data bit 1 for data from the ESP32 to the C64
+#define oC64D1 GPIO_NUM_33  // data bit 1 foswitch data fswitchom the ESP32 to the C64
 #define oC64D2 GPIO_NUM_14  // data bit 2 for data from the ESP32 to the C64
 #define oC64D3 GPIO_NUM_23  // data bit 3 for data from the ESP32 to the C64
 #define oC64D4 GPIO_NUM_13  // data bit 4 for data from the ESP32 to the C64
@@ -114,7 +114,6 @@ void IRAM_ATTR isr_io1() {
   ch = shiftIn(sdata, sclk, MSBFIRST);
   dataFromC64 = true;
   digitalWrite(pload, LOW);
-   
 }
 
 // *************************************************
@@ -239,9 +238,6 @@ void setup() {
   delay(250);
   digitalWrite(oC64RST, HIGH);
 
-  delay(250);
-  
-
   // try to connect to wifi for 5 seconds
   WiFi.begin(ssid.c_str(), password.c_str());
   for (int d = 0; d < 10; d++) {
@@ -286,13 +282,12 @@ void setup() {
 
 }  // end of setup
 
-
 // ***************************************************************
 //   get the list of users from the webserver
 // ***************************************************************
 
 void fill_userlist() {
-  users = "";
+  String oldusers = users;
   String serverName = "http://" + server + "/list_users.php";
   WiFiClient client;
   HTTPClient http;
@@ -315,7 +310,7 @@ void fill_userlist() {
 #endif
   } else {
     result = "communication error";
-    users = "";
+    users = oldusers;
   }
 
   // Free resources
@@ -348,7 +343,7 @@ void Task1code(void* parameter) {
         refreshUserPages = false;
         get_full_userlist();
       }
-      if (fullpage == true and WiFi.status() == WL_CONNECTED) break;
+      if (fullpage == true and WiFi.status() == WL_CONNECTED) getMessage=true;
     }
     // when the getMessage variable goes True, we drop out of the wait loop
     getMessage = false;  // first reset the getMessage variable back to false.
@@ -375,14 +370,20 @@ void Task1code(void* parameter) {
       String textOutput = http.getString();  // capture the response from the webpage (it's json)
       textOutput.trim();                     // trim the output
 
-      if (fullpage == true) {        
+      if (fullpage == true) {
         msgbuffersize = textOutput.length() + 1;
         textOutput.toCharArray(fullpagetext, msgbuffersize);  // copy the json string to full page buffer
         textOutput = "";
         fullpage = false;
       }
 
-      msgbuffersize = textOutput.length() + 1;           //
+      msgbuffersize = textOutput.length() + 1;  //
+      if (msgbuffersize > 249) {                // that should never happen
+        msgbuffersize = 249;
+#ifdef debug
+        Serial.println("Error: msgbuffer is too large!");
+#endif
+      }
       textOutput.toCharArray(msgbuffer, msgbuffersize);  // copy the json string to the message buffer
 
       DynamicJsonDocument doc(512);                                  // next we want to analyse the json data
@@ -429,7 +430,15 @@ void Task1code(void* parameter) {
           msgbuffersize = 0;
           haveMessage = 0;
         }
+      } else {
+#ifdef debug
+        if (textOutput != "") Serial.println("Error: Json deserialize error in getmessage");
+#endif
       }
+    } else {
+#ifdef debug
+      Serial.println("Error: Readmessage response = " + httpResponseCode);
+#endif
     }
     // Free resources
     http.end();
@@ -499,7 +508,11 @@ void get_full_userlist() {
   // The second core calls this webpage so the main thread does not suffer performance
   for (int p = 0; p < 6; p++) {
     userPages[p] = getUserList(p);
+
+    char firstchar = userPages[p].charAt(0);
+    if ((firstchar == 156 or firstchar == 149) == false) userPages[p] = "      ";
   }
+
   last_up_refresh = millis();
 }
 
@@ -509,7 +522,7 @@ String getUserList(int page) {
   HTTPClient http;
   http.begin(client, serverName);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  String httpRequestData = "regid=" + regID + "&page=" + page + "";
+  String httpRequestData = "regid=" + regID + "&page=" + page + "&version=2";
   int httpResponseCode = http.POST(httpRequestData);
   String result = "0";
   result = http.getString();
@@ -785,11 +798,12 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 250 = C64 ask for the first full page of messages
           // ------------------------------------------------------------------------------
-          
+
           // if the fullpage variable is true, that means the other core has not
           // collected the data yet. Give it 3 seconds..
+          unsigned long oldlastmessage = lastmessage;
           unsigned long timeOut = millis() + 3000;
-          while (fullpage == true and millis() < timeOut) {delay(1);}
+          while (fullpage == true and millis() < timeOut) { delay(1); }
 
           int i = 0;
           while (i >= 0) {
@@ -831,16 +845,20 @@ void loop() {
               // and send the outbuffer
               send_out_buffer_to_C64();
 
-            } else {
+            } else {              
               i = -1;
               sendByte(128);
+#ifdef debug
+              Serial.println("Json deserialize error");
+#endif
             }
             // wait for next 250 command
             ch = 0;
-            unsigned long timeOut = millis() + 500;
+            timeOut = millis() + 500;
             while (ch == 0) {
               delayMicroseconds(2);
               if (millis() > timeOut) {
+                lastmessage = oldlastmessage;
                 ch = 1;
 #ifdef debug
                 Serial.println("Timeout in fullpage routine");
@@ -1102,7 +1120,9 @@ void loop() {
           // start byte 236 = C64 asks for the server configuration status and servername
           // ------------------------------------------------------------------------------
           send_String_to_c64(configured + " " + server);
-
+#ifdef debug
+          Serial.println("response 236 = " + configured + " " + server);
+#endif
           break;
         }
 
@@ -1171,7 +1191,7 @@ void loop() {
 
       String ul1 = userPages[page];
       send_String_to_c64(ul1);
-      page = page + 1;
+      page++;
     }
 
   }  // end of "if (dataFromC64)"
@@ -1218,6 +1238,11 @@ void debug_print_inbuffer() {
 //  void to receive characters from the C64 and store them in a buffer
 // ******************************************************************************
 void receive_buffer_from_C64(int cnt) {
+
+  // cnt is the number of transmissions we put into this buffer
+  // This number is 1 most of the time
+  // but in the configuration screens the C64 will send multiple items at once (like ssid and password)
+
   int i = 0;
 
   while (cnt > 0) {
@@ -1237,6 +1262,14 @@ void receive_buffer_from_C64(int cnt) {
     dataFromC64 = false;
     inbuffer[i] = ch;
     i++;
+    if (i > 248) {  //this should never happen
+#ifdef debug
+      Serial.print("Error: inbuffer is about to flow over!");
+#endif
+      ch = 128;
+      cnt = 0;
+      break;
+    }
     if (ch == 128) cnt--;
   }
   i--;
