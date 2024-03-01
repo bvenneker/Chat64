@@ -50,7 +50,7 @@ char inbuffer[250];  // a character buffer for incomming data
 int inbuffersize = 0;
 char outbuffer[250];  // a character buffer for outgoing data
 int outbuffersize = 0;
-char msgbuffer[250];  // a character buffer for a chat message
+char msgbuffer[500];  // a character buffer for a chat message
 volatile int msgbuffersize = 0;
 char textbuffer[10];  // a small buffer to capture the start of a message
 char textsize = 0;
