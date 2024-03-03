@@ -120,11 +120,11 @@ warmstart:                                        //
 //=========================================================================================================
 !private_chat_screen:                             // 
     jsr !start_menu_screen+                       // 
-    displayText(text_help_pm,1,0)                 // 
-    displayText(text_F5_toggle,1,26)              // 
+    displayText(text_help_pm,1,0)                 //     
     lda #3                                        // Set a flag so other routines know that you
     sta SCREEN_ID                                 // are in a private chat screen
     jsr !restore_pm_screen+                       // 
+    displayText(text_F5_toggle,1,26)              // 
     jmp !chat_screen+                             // 
                                                   // 
 //=========================================================================================================
