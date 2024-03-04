@@ -65,7 +65,7 @@ volatile unsigned long last_up_refresh = millis() + 5000;
 String romVersion = "0.0";
 volatile bool mLEDstatus = false;
 volatile bool fullpage = true;
-char fullpagetext[2500];
+char fullpagetext[3500];
 
 // ********************************
 // **        OUTPUTS             **
