@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "4.0";
+String SwVersion = "3.54";
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
