@@ -122,12 +122,13 @@ warmstart:                                        //
 //    PRIVATE CHAT SCREEN
 //=========================================================================================================
 !private_chat_screen:                             // 
-    jsr !start_menu_screen+                       // 
-    displayText(text_help_pm,1,0)                 // 
-    displayText(text_F5_toggle,1,26)              // 
+    jsr !start_menu_screen+                       //     
     lda #3                                        // Set a flag so other routines know that you
     sta SCREEN_ID                                 // are in a private chat screen
     jsr !restore_pm_screen+                       // 
+    ldx #1 ; jsr $e9ff                            // Clear line 1
+    displayText(text_help_pm,1,0)                 // 
+    displayText(text_F5_toggle,1,26)              // 
     jmp !chat_screen+                             // 
                                                   // 
 //=========================================================================================================
