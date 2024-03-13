@@ -5,7 +5,6 @@
 When flashing the ESP32 you need to make sure you have installed following tools and libraries:
 
 ---
-
 ### Arduino IDE
 Download and install the Arduino IDE
 
@@ -29,6 +28,7 @@ You will now be able to select the correct board. make sure you choose `WEMOS D1
 
 Next you will need to install a few libraries.
 go to Tools > Manage Libraries
+
 ![ManageLibraries](/Artwork/arduino-managelibraries.png)
 
 The following window will appear
@@ -49,7 +49,7 @@ You may need to install a driver for your operating system. Depending on the USB
 - If your ESP32 uses the CH9102F USB-to-Serial Chip. You'll need the following driver for windows 10/11 [Download here](http://chat64.nl/drivers/CH343SER.zip)
 
 - If your ESP32 uses the CP210x USB-to-Serial Chip. You'll need the following driver for windows 10/11 [Download here](http://chat64.nl/drivers/CP210x_Windows_Drivers_with_Serial_Enumeration.zip)
-s
+
 ---
 ### Compile the code and upload to your ESP32
 In the Arduino IDE go to Tools > Ports and select the port where your ESP32 is connected to. In this example it's COM3. This might be different on your computer.
