@@ -295,7 +295,7 @@ sta CURSORCOLOR                                   //
     displayText(text_menu_item_5,15,3)            // [F6] - About this Software
                                                   // 
     displayText(text_version,24,9)                // Software version info
-    displayText(version,24,17)                    // Software version info
+    displayText(swversion,24,17)                  // Software version info
     displayText(version_date,24,22)               // Software version info
                                                   // 
 !keyinput:                                        // 
@@ -2313,7 +2313,7 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.59"; .byte 128
+swversion:                    .byte 151; .text "3.59"; .byte 128
 version_date:                 .byte 151; .text "02/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
