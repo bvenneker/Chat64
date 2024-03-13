@@ -378,8 +378,8 @@ void Task1code(void* parameter) {
       }
 
       msgbuffersize = textOutput.length() + 1;  //
-      if (msgbuffersize > 249) {                // that should never happen
-        msgbuffersize = 249;
+      if (msgbuffersize > 349) {                // that should never happen
+        msgbuffersize = 349;
 #ifdef debug
         Serial.println("Error: msgbuffer is too large!");
 #endif
