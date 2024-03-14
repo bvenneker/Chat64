@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.54";
+String SwVersion = "3.55";
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -66,7 +66,7 @@ String romVersion = "0.0";
 volatile bool mLEDstatus = false;
 volatile bool fullpage = true;
 char fullpagetext[3500];
-
+byte send_error =0;
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -378,8 +378,8 @@ void Task1code(void* parameter) {
       }
 
       msgbuffersize = textOutput.length() + 1;  //
-      if (msgbuffersize > 349) {                // that should never happen
-        msgbuffersize = 349;
+      if (msgbuffersize > 498) {                // that should never happen
+        msgbuffersize = 498;
 #ifdef debug
         Serial.println("Error: msgbuffer is too large!");
 #endif
@@ -641,7 +641,7 @@ void loop() {
     // 252 = C64 sends the new wifi network name (ssid) AND password AND time offset
     // 251 = C64 ask for the current wifi ssid,password and time offset
     // 250 = C64 ask for the first full page of messages (during startup)
-    // 249 = check if this is an existing user
+    // 249 = get result of last send action (253)
     // 248 = C64 ask for the wifi connection status
     // 247 = C64 triggers call to the website for new private message
     // 246 = set chatserver ip/fqdn
@@ -729,6 +729,17 @@ void loop() {
                 break;
               }
             }
+            // is this a valid username?
+            String test_name = RecipientName;
+            test_name.toLowerCase();
+            if (users.indexOf(test_name + ';') >= 0) {
+              // user exists
+            } else {
+              // user does not exist   
+              urgentMessage = " System:  Unknown user:" + RecipientName ;
+              send_error=1;
+              break;
+            }
           }
           int buflen = toEncode.length() + 1;
           char buff[buflen];
@@ -748,6 +759,7 @@ void loop() {
           // if it still fails after a few retries, give us an error.
           if (!sc) {
             urgentMessage = " System:        ERROR sending the message";
+            send_error=1;
           }
           break;
         }
@@ -875,33 +887,9 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 249 = C64 asks if this is an existing user (for private chat)
           // ------------------------------------------------------------------------------
-          receive_buffer_from_C64(1);
-          for (int x = 0; x < inbuffersize; x++) {
-            inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
-          }
-
-          char bns[inbuffersize];
-          strncpy(bns, inbuffer, inbuffersize + 1);
-          String test_name = bns;
-          test_name.toLowerCase();
-#ifdef debug
-          Serial.print("is this an existing user?: ");
-          Serial.print(test_name);
-          Serial.print(" ");
-#endif
-          if (users.indexOf(test_name + ';') >= 0) {
-            // this user exists.
-            sendByte(0);  // send error code 0
-#ifdef debug
-            Serial.println(" Yes");
-#endif
-          } else {
-            sendByte(1);  // send error code 1
-#ifdef debug
-            Serial.println(" No");
-#endif
-          }
+          sendByte(send_error);
           sendByte(128);
+          send_error=0;
           break;
         }
 
@@ -1079,7 +1067,14 @@ void loop() {
           String ns = bns;
 
           regID = getValue(ns, 32, 0);
+          
           Serial.println(regID);
+          if (regID.length()!=16){
+#ifdef debug
+            Serial.println("bad form");
+#endif
+            break;
+          }
           myNickName = getValue(ns, 32, 1);
           Serial.println(myNickName);
 
@@ -1119,7 +1114,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 236 = C64 asks for the server configuration status and servername
           // ------------------------------------------------------------------------------
-          send_String_to_c64(configured + " " + server);
+          send_String_to_c64(configured + " " + server + " " + SwVersion);
 #ifdef debug
           Serial.println("response 236 = " + configured + " " + server);
 #endif
