@@ -1408,6 +1408,8 @@ jsr !start_menu_screen-                           //
     cmp #128                                      // 
     beq !endloop+                                 // 
     sta $770,x                                    // 
+    lda #1
+    sta $db70,x
     inx                                           // 
     lda #32                                       // 
     sta $770,x                                    // 
