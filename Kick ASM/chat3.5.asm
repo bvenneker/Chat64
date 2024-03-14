@@ -165,6 +165,8 @@ warmstart:                                        //
                                                   // 
                                                   // at this point we have returned from the text_input routine and we must send the typed message to the esp32
                                                   // so lets read the message fom screen, including the color information
+    jsr !wait_cursor_invisible+                   // 
+    lda #$01; sta $cc                             // Hide the cursor
     lda SCREEN_ID                                 // check the screen id
     cmp #3                                        // if we are in private messaging (id = 3)
     beq !private_message+                         // then we can skip to label "private_message"
@@ -178,14 +180,18 @@ warmstart:                                        //
     jmp !private_chat_screen-                     // and jump to the private message screen to send you message privately
                                                   // 
 !private_message:                                 // 
-    jsr !check_pm_user+                           // if it is a private message, check if the user exists.
-    lda SEND_ERROR                                // if the user does not exist, SEND_ERROR will be non-zero
-    cmp #0                                        // 
-    beq !+                                        // 
-    jmp !ti-                                      // return to text input if there was an error with the user name
+    lda $770                                      // if the message screen does not start with @,
+    cmp #0                                        // then we raise an error "Don't send public msgs from priv. screen"
+    beq !+                                        //
+    lda #1
+    sta SEND_ERROR
+    displayText(empty_line,1,0)                   // clear line 1
+    displayText(text_error_private_message,1,0)   // then display the errormessage
+    jsr !sounderror+                              // play the error sound.
+    jmp !ti-                                      // return to text input  
                                                   // 
                                                   // find the message length
-!:    ldx #0                                      // reset the message length variable to zero
+!:  ldx #0                                        // reset the message length variable to zero
     stx MESSAGELEN                                // 
                                                   // x is also our index
 !loop:                                            // start a loop
@@ -197,7 +203,7 @@ warmstart:                                        //
     cmp #127                                      // screen codes >= 127 also need to be ignored
     bcs !+                                        // 
     stx MESSAGELEN                                // store x a as our message length
-!:     inx                                        // increase x
+!:  inx                                           // increase x
     cpx #120                                      // until x reaches 120 (3 lines of 40 characters long)
     bne !loop-                                    // back to the loop
     lda MESSAGELEN                                // after te loop,
@@ -245,12 +251,16 @@ sta CURSORCOLOR                                   //
     lda #253                                      // Load 253 into accumulator
     sta $de00                                     // Send the start byte (253 = send new chat message)
     jsr !send_buffer+                             // Send the message to the ESP32
-                                                  // 
+    jsr !getResult+                               // 
+    lda SEND_ERROR                                //
+    cmp #1                                        //
+    bne !exit+                                    //
+    jmp !ti-                                      //
 !empty_message:                                   // 
                                                   // 
 !exit:                                            // 
     jmp !chat_screen-                             // jump back to the start of the chat screen routine.
-                                                  // 
+                                                 // 
 //=========================================================================================================
 //     MAIN MENU
 //=========================================================================================================
@@ -264,7 +274,7 @@ sta CURSORCOLOR                                   //
 //=========================================================================================================
 !mainmenu:                                        // 
     jsr !start_menu_screen-                       // 
-    lda #23 ; sta $fb                             // Load 23 into accumulator and store it in zero page address $fb
+    lda #22 ; sta $fb                             // Load 23 into accumulator and store it in zero page address $fb
     jsr !draw_menu_line+                          // Call the draw_menu_line sub routine to draw a line on row 23
     lda CONFIG_STATUS                             // Check the config status
     cmp #4                                        // Configuration complete?
@@ -294,10 +304,11 @@ sta CURSORCOLOR                                   //
     displayText(text_menu_item_1,5,3)             // [F1] - WiFi Setup
     displayText(text_menu_item_5,15,3)            // [F6] - About this Software
                                                   // 
-    displayText(text_version,24,9)                // Software version info
-    displayText(swversion,24,17)                  // Software version info
-    displayText(version_date,24,22)               // Software version info
-                                                  // 
+    displayText(text_version,23,1)                // Software version info
+    displayText(versionmask,23,9)                     // Software version info
+    displayText(version,23,13)                     // Software version info
+    displayText(version_date,23,32)               // Software version info
+    displayText(SWVERSION,23,23)                   // 
 !keyinput:                                        // 
                                                   // 
     jsr $ffe4                                     // Call KERNAL routine: Get character from keyboard buffer
@@ -1440,6 +1451,18 @@ jsr !start_menu_screen-                           //
     rts                                           // return to sender, just like Elvis.
                                                   // 
 //=========================================================================================================
+// SUB ROUTINE, Get Result from sending the message
+//=========================================================================================================
+!getResult:
+    lda #249                                      // Load number #248 (ask for WiFi status)
+    sta CMD                                       // Store that in CMD variable
+    jsr !send_start_byte_ff+                      // Call the sub routine to send 248 to the esp32    
+    lda RXBUFFER                                  // 
+    sta SEND_ERROR
+    rts
+
+
+//=========================================================================================================
 // SUB ROUTINE, ASK CHECK IF USER EXISTS (in the private message screen) @USERNAME
 //=========================================================================================================
 !check_pm_user:                                   // 
@@ -1580,10 +1603,10 @@ lda #1
 sta $02                                           
 jsr !splitRXbuffer-                               
     lda SPLITBUFFER                               // SPLITBUFFER NOW CONTAINS THE CONFIG_STATUS
-sta CONFIG_STATUS                                 
+    sta CONFIG_STATUS                                 
                                                   
-lda #2                                            
-sta $02                                           
+    lda #2                                            
+    sta $02                                           
     jsr !splitRXbuffer-                           // SPLITBUFFER NOW CONTAINS THE SERVERNAME
                                                   
 ldx #0                                            
@@ -1599,7 +1622,25 @@ jmp !read-
 !:                                                
 lda #128                                          
 sta SERVERNAME,x                                  
-                                                  
+
+
+    lda #3                                            
+    sta $02                                           
+    jsr !splitRXbuffer-                           // SPLITBUFFER NOW CONTAINS THE SWVERSION
+
+ldx #0                                            
+!read:                                            
+lda SPLITBUFFER,x                                 
+sta SWVERSION,x                                  
+cmp #32                                           
+beq !+                                            
+cmp #128                                          
+beq !+                                            
+inx                                               
+jmp !read-                                        
+!:                                                
+lda #128                                          
+sta SWVERSION,x     
 !exit:                                            // 
     rts                                           // and return to caller
                                                   // 
@@ -2313,16 +2354,17 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-swversion:                    .byte 151; .text "3.59"; .byte 128
-version_date:                 .byte 151; .text "02/2024";.byte 128
+version:                      .byte 151; .text "3.59"; .byte 128
+versionmask:                  .byte 151; .text "ROM x.xx / SW"; .byte 128
+version_date:                 .byte 151; .text "03/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
 text_wifi_wait:               .byte 145; .text "Wait for connection"; .byte 128
 text_server_menu:             .byte 151; .text "SERVER SETUP"; .byte 128
-text_server_fqdn:             .byte 145; .text "Server:"; .byte 128
+
 * = $9900 "Constants_page2"                       
-                                                  
+text_server_fqdn:             .byte 145; .text "Server:"; .byte 128                                                  
 text_save_settings:           .byte 147; .text "[ F1 ] Save Settings"; .byte 128
 text_exit_menu:               .byte 147; .text "[ F7 ] Exit Menu"; .byte 128
 text_server_example:          .byte 145; .text "Example: 'www.example.com'"; .byte 128
@@ -2331,9 +2373,10 @@ text_about_line_1:            .byte 145; .text "Initially developed by Bart Venn
 text_about_line_2:            .byte 145; .text "as a proof of concept, a new version"; .byte 128
 text_about_line_3:            .byte 145; .text "of CHAT64 is now available to everyone."; .byte 128
 text_about_line_4:            .byte 145; .text "We proudly bring you CHAT64 3.0"; .byte 128
-text_about_line_5:            .byte 145; .text "Made by Bart Venneker"; .byte 128
+
                                                   
 * = $9a00 "Constants_page3"                       
+text_about_line_5:            .byte 145; .text "Made by Bart Venneker"; .byte 128
 text_about_line_6:            .byte 145; .text "and Theo van den Beld in 2023"; .byte 128
 text_about_line_7:            .byte 145; .text ""; .byte 128
 text_about_line_8:            .byte 145; .text "Hardware and software (Open Source)"; .byte 128
@@ -2344,10 +2387,9 @@ text_account_menu:            .byte 151; .text "ACCOUNT SETUP" ; .byte 128
 text_account_mac:             .byte 145; .text "Mac address:"; .byte 128
 text_account_regid:           .byte 145; .text "Registration id:"; .byte 128
 text_account_nick_name:       .byte 145; .text "Nick Name:" ; .byte 128
-text_settings_saved:          .byte 157; .text "Settings Saved"; .byte 128
-                                                  
-                                                  
+                                                                                                  
 * = $9b00  "Constants_page4"                      
+text_settings_saved:          .byte 157; .text "Settings Saved"; .byte 128
 text_account_menu_item_2:     .byte 147; .text "[ F6 ] Reset to factory defaults" ; .byte 128
 text_account_shure:           .byte 146; .text "Are you shure? press [ F4 ] to confirm"; .byte 128
 text_reset_shure:             .byte 146; .text "Clear all settings?"  ; .byte 128
@@ -2357,9 +2399,10 @@ text_help_private1:           .byte 147; .text "To send a private message to som
 text_help_private2:           .byte 147; .text "type "; .byte 146 ; .text "@username"; .byte 147; .text " at the start of your"; .byte 128
 text_help_private3:           .byte 147; .text "message."; .byte 128
 message_start:                .byte 21,20,19,18,17,16,15
-text_time_offset:             .byte 145; .text "Time offset:"; .byte 128
+
                                                   
 * = $9c00 "Constants_page5"                       
+text_time_offset:             .byte 145; .text "Time offset:"; .byte 128
 text_help_private4:           .byte 147; .text "Use F5 to switch between the public"; .byte 128
 text_help_private5:           .byte 147; .text "and private message screen."; .byte 128
 titletext:                    .byte 150; .text "made by bart and theo in 2023"; .byte 128
@@ -2443,6 +2486,7 @@ CURSORCOLOR:                  .byte 0             //
 GETMSGCMD:                    .byte 250           //
 SPLITBUFFER:                  .fill 40,32         //
 SERVERNAME:                   .fill 40,32         //
+SWVERSION:                    .fill 10,32         //
 RXBUFFER:                     .fill 256,128       // reserved space for incoming data
 TXBUFFER:                     .fill 256,128       // reserved space for outgoing data 
 M_CHARBLOCK400:               .fill 256,32        // reserved memory space to backup the screen 1
