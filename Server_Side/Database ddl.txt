@@ -1,0 +1,32 @@
+
+CREATE DATABASE `chat64` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+
+
+-- There are only two tables. One for messages, one for users
+
+-- chat64.messages definition
+CREATE TABLE `messages` (
+  `rowid` int NOT NULL AUTO_INCREMENT,
+  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `sendername` varchar(15) DEFAULT NULL,
+  `regid` varchar(25) NOT NULL,
+  `recipientname` varchar(15) DEFAULT NULL,
+  `recipient` varchar(25) DEFAULT NULL,
+  `message` varchar(300) NOT NULL,
+  PRIMARY KEY (`rowid`)
+) ENGINE=InnoDB AUTO_INCREMENT=646 DEFAULT CHARSET=latin1;
+
+-- chat64.users definition
+CREATE TABLE `users` (
+  `rowid` int NOT NULL AUTO_INCREMENT,
+  `mac` varchar(25) DEFAULT NULL COMMENT 'mac address of the cartridge',
+  `regid` varchar(25) DEFAULT NULL COMMENT 'registration id',
+  `fullname` varchar(100) DEFAULT NULL,
+  `nickname` varchar(15) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `lastseen` bigint DEFAULT '0' COMMENT 'unix timestamp when the user was last active',
+  `version` varchar(10) DEFAULT NULL,
+  `eeprom` varchar(10) DEFAULT NULL,
+  `blocked` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`rowid`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
