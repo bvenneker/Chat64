@@ -7,10 +7,10 @@
 
 Preferences settings;
 
-String SwVersion = "3.56";
+String SwVersion = "3.57";
 
-bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = true;     // true for pcb version 3.7 and up
+bool invert_reset_signal = true;  // false for pcb version 3.7 and up
+bool invert_nmi_signal = false;     // true for pcb version 3.7 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
