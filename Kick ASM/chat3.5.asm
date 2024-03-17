@@ -99,7 +99,7 @@ warmstart:                                        //
     inx                                           // increase the x index
     jmp !sendversion-                             // jump back to send the next byte
                                                   // 
-!:    lda #100                                    // Delay 100... hamsters
+!:  lda #100                                      // Delay 100... hamsters
     sta DELAY                                     // Store 100 in the DELAY variable
     jsr !delay+                                   // and call the delay subroutine
                                                   // 
@@ -860,7 +860,7 @@ jsr !start_menu_screen-                           //
     lda #0                                        // set the page number to 0
     sta PAGE                                      // 
 !zp:                                              // 
-    lda #234                                      // load the number #234
+    lda #234                                      // load the number #234    
     sta CMD                                       // Store that in variable CMD
     jsr !send_start_byte_ff+                      // Call the sub routine to send 234 to the esp32 to ask for the the user list (234 resets the page counter, so page is 0)
 !fp:displayText(RXBUFFER,4,0)                     // 
@@ -875,7 +875,7 @@ jsr !start_menu_screen-                           //
                                                   // 
 !keyinput:                                        // At this point the user can select F7 to exit the menu or pres 'n' or 'p' for next page / previous page
     jsr $ffe4                                     // Call KERNAL routine: Get character from keyboard buffer
-                                                  // beq !keyinput-                                   // Loop if there is none
+    beq !keyinput-                                // Loop if there is none
     cmp #78                                       // 'n' key pressed?
     beq !nextpage+                                // If true, go to the next page
     cmp #80                                       // 'p' key pressed?
@@ -910,11 +910,11 @@ jsr !start_menu_screen-                           //
                                                   // 
 !clearusers:                                      // 
     ldx #4                                        // load 4 in x register
-!clearpage:                                       // start a loop
+!clearlines:                                      // start a loop
     jsr $E9FF                                     // this kernal routine clears line x, where x is the line number
     inx                                           // increase x
     cpx #19                                       // compare x to 19
-    bne !clearpage-                               // if x is still lower, repeat the loop
+    bne !clearlines-                              // if x is still lower, repeat the loop
     rts                                           // return from sub routine
                                                   // 
 //=========================================================================================================
@@ -1595,7 +1595,7 @@ jsr !start_menu_screen-                           //
     sta CONFIG_STATUS                             // so the program thinks we have a complete configuration
     jmp !exit+                                    // exit this routine, we are in vice mode at this point
                                                   // 
-!:    lda #236                                    // Load 236 in accumulator (get current connection status and servername)
+!:  lda #236                                      // Load 236 in accumulator (get current connection status and servername)
     sta CMD                                       // Store that in CMD
     jsr !send_start_byte_ff+                      // Call the sub routine to obtain connection status from esp32
                                                   // the RXBUFFER now contains config_status[32]servername[128]
@@ -2288,9 +2288,9 @@ rts
     lda VICEMODE                                  // if we are running in simulation mode
     cmp #1                                        // jump to exit without interacting with ESP32
     bne !+                                        // 
-    jmp !vicemode+                                // 
-                                                  // 
-!:    lda #0                                      // load zero into accumulator
+    jmp !vicemode+                                //   
+                                                  //
+!:  lda #0                                        // load zero into accumulator
     sta RXINDEX                                   // reset the receive buffer index
     sta RXFULL                                    // reset the rxfull flag
     jsr !wait_for_ready_to_receive-               // 
