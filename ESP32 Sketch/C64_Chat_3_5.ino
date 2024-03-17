@@ -5,9 +5,11 @@
 
 #define debug
 
+
 Preferences settings;
 
-String SwVersion = "3.55";
+String SwVersion = "3.56";
+float pcb_rev = 3.0 ;
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -225,23 +227,34 @@ void setup() {
   pinMode(oC64D7, OUTPUT);
   digitalWrite(oC64D7, LOW);
   pinMode(oC64RST, OUTPUT);
-  digitalWrite(oC64RST, HIGH);
   pinMode(oC64NMI, OUTPUT);
+
+  if (pcb_rev >= 3.7) {
+    digitalWrite(oC64RST, LOW);
+    digitalWrite(oC64NMI, HIGH);
+  }
+  else {
+    digitalWrite(oC64RST, HIGH);
+    digitalWrite(oC64NMI, LOW);
+  }
+
   digitalWrite(oC64NMI, LOW);
   pinMode(pload, OUTPUT);
   digitalWrite(pload, LOW);  // must be low to load parallel data
   pinMode(sclk, OUTPUT);
   digitalWrite(sclk, LOW);  //data shifts to serial data output on the transition from low to high.
 
-  // Reset the C64
-  digitalWrite(oC64RST, LOW);
+  // Reset the C64, toggle the output pin
+  uint32_t new_state = 1 - (GPIO.out >> oC64RST & 0x1);
+  gpio_set_level(oC64RST, new_state);   
   delay(250);
-  digitalWrite(oC64RST, HIGH);
+  gpio_set_level(oC64RST, !new_state);
+
 
   // try to connect to wifi for 5 seconds
   WiFi.begin(ssid.c_str(), password.c_str());
   for (int d = 0; d < 10; d++) {
-    if (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.isConnected()) {
       wificonnected = true;
       break;
     }
@@ -249,7 +262,7 @@ void setup() {
   }
 
   // check if we are connected to wifi
-  if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.isConnected()) {
     // light the LED when connection was succesful
     digitalWrite(CLED, HIGH);
     wificonnected = true;
@@ -330,20 +343,21 @@ void Task1code(void* parameter) {
     unsigned long heartbeat = millis();
     while (getMessage == false) {           // this is a wait loop
       delay(10);                            // this task does nothing until the variable getMessage becomes true
-      if (millis() > heartbeat + 25000) {   // while we do nothing we send a heartbeat signal to the server
+      if (millis() > heartbeat + 25000
+          and WiFi.isConnected()) {         // while we do nothing we send a heartbeat signal to the server
         heartbeat = millis();               // so that the web server knows you are still on line
         SendMessageToServer("", "", true);  // heartbeat repeats every 25 seconds
         refreshUserPages = true;            // and refresh the user pages (who is online)
       }
-      if (updateUserlist and WiFi.status() == WL_CONNECTED) {
+      if (updateUserlist and WiFi.isConnected()) {
         updateUserlist = false;
         fill_userlist();
       }
-      if (refreshUserPages and WiFi.status() == WL_CONNECTED) {
+      if (refreshUserPages and WiFi.isConnected()) {
         refreshUserPages = false;
         get_full_userlist();
       }
-      if (fullpage == true and WiFi.status() == WL_CONNECTED) getMessage=true;
+      if (fullpage == true and WiFi.isConnected()) getMessage=true;
     }
     // when the getMessage variable goes True, we drop out of the wait loop
     getMessage = false;  // first reset the getMessage variable back to false.
@@ -508,7 +522,9 @@ void get_full_userlist() {
   // The second core calls this webpage so the main thread does not suffer performance
   for (int p = 0; p < 6; p++) {
     userPages[p] = getUserList(p);
-
+    Serial.print(p);
+    Serial.print("=");
+    Serial.println(userPages[p]);
     char firstchar = userPages[p].charAt(0);
     if ((firstchar == 156 or firstchar == 149) == false) userPages[p] = "      ";
   }
@@ -610,6 +626,9 @@ void ConnectivityCheck() {
 // ******************************************************************************
 unsigned long ledtimer = 0;
 void loop() {
+
+  gpio_set_level(CLED, WiFi.isConnected());
+
   if (mLEDstatus) {
     gpio_set_level(mLED, HIGH);
     ledtimer = millis() + 100;
@@ -630,7 +649,7 @@ void loop() {
 #endif
 
     // generate an error if wifi connection drops
-    if (wificonnected and WiFi.status() != WL_CONNECTED) {
+    if (wificonnected and !WiFi.isConnected()) {
       digitalWrite(CLED, LOW);
       wificonnected = false;
       urgentMessage = "   Error in WiFi connection, please reset";
@@ -663,6 +682,21 @@ void loop() {
     // 228 = debug purposes
     // 128 = end marker, ignore
 
+// ------------------------------------------------------------------------------
+    // start byte 234 or 233 = C64 ask for the user list
+    // ------------------------------------------------------------------------------
+    if (ch == 234 or ch == 233) {
+      // c64 asks for user list.
+      // we send a max of 20 users in one long string
+      // then the c64 will ask again, we repeat until we have no more. then we just send 128
+
+      static int page = 0;
+      if (ch == 234) page = 0;
+      String ul1 = userPages[page];   
+      send_String_to_c64(ul1);
+      page++;
+    }
+    
     switch (ch) {
       case 254:
         {
@@ -899,7 +933,7 @@ void loop() {
           // start byte 248 = C64 ask for the wifi connection status
           // ------------------------------------------------------------------------------
 
-          if (WiFi.status() != WL_CONNECTED) {
+          if (!WiFi.isConnected()) {
             digitalWrite(CLED, LOW);
             sendByte(146);
             send_String_to_c64("Not Connected to Wifi");
@@ -1116,7 +1150,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           send_String_to_c64(configured + " " + server + " " + SwVersion);
 #ifdef debug
-          Serial.println("response 236 = " + configured + " " + server);
+          Serial.println("response 236 = " + configured + " " + server + " " + SwVersion);
 #endif
           break;
         }
@@ -1173,21 +1207,7 @@ void loop() {
       haveMessage = 3;
     }
 
-    // ------------------------------------------------------------------------------
-    // start byte 234 or 233 = C64 ask for the user list
-    // ------------------------------------------------------------------------------
-    if (ch == 234 or ch == 233) {
-      // c64 asks for user list.
-      // we send a max of 20 users in one long string
-      // then the c64 will ask again, we repeat until we have no more. then we just send 128
-
-      static int page = 0;
-      if (ch == 234) page = 0;
-
-      String ul1 = userPages[page];
-      send_String_to_c64(ul1);
-      page++;
-    }
+    
 
   }  // end of "if (dataFromC64)"
 
@@ -1279,19 +1299,20 @@ void receive_buffer_from_C64(int cnt) {
 void send_out_buffer_to_C64() {
 // send the content of the outbuffer to the C64
 #ifdef debug
-//  Serial.print("out to C64: ");
+  Serial.print("out to C64: ");
 #endif
   for (int x = 0; x < outbuffersize - 1; x++) {
     sendByte(Ascii_to_screenCode(outbuffer[x]));
 #ifdef debug
-//    Serial.print(outbuffer[x]);
+    Serial.print(outbuffer[x]);
+    if (outbuffer[x]==128) Serial.print("[128]");
 #endif
   }
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
 #ifdef debug
-//  Serial.println("");
+  Serial.println("");
 #endif
 }
 
@@ -1299,10 +1320,13 @@ void send_out_buffer_to_C64() {
 // ******************************************************************************
 // pull the NMI line low for a few microseconds
 // ******************************************************************************
-void triggerNMI() {
-  digitalWrite(oC64NMI, HIGH);
+void triggerNMI() { 
+  // toggle NMI
+  uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
+  gpio_set_level(oC64NMI, new_state);
   delayMicroseconds(125);  // minimal 100 microseconds delay
-  digitalWrite(oC64NMI, LOW);
+  // And toggle back
+  gpio_set_level(oC64NMI, !new_state);
 }
 
 
