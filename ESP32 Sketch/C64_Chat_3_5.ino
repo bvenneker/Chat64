@@ -5,11 +5,12 @@
 
 #define debug
 
-
 Preferences settings;
 
 String SwVersion = "3.56";
-float pcb_rev = 3.0 ;
+
+bool invert_reset_signal = false;  // false for pcb version 3.7 and up
+bool invert_nmi_signal = true;     // true for pcb version 3.7 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -40,7 +41,7 @@ volatile unsigned long lastmessage = 1;  // do not change this!
 volatile unsigned long lastprivmsg = 1;  // do not change this!
 volatile unsigned long tempMessageID = 0;
 String msgtype = "public";  // do not change this!
-String users = "";          // a list of all users on this server (yes, this is a long String)
+String users = "";          // a list of all users on this server.
 String tempMessageTp = "";
 String urgentMessage = "";
 volatile bool wificonnected = false;
@@ -68,7 +69,9 @@ String romVersion = "0.0";
 volatile bool mLEDstatus = false;
 volatile bool fullpage = true;
 char fullpagetext[3500];
-byte send_error =0;
+byte send_error = 0;
+int userpageCount = 0;
+
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -228,15 +231,8 @@ void setup() {
   digitalWrite(oC64D7, LOW);
   pinMode(oC64RST, OUTPUT);
   pinMode(oC64NMI, OUTPUT);
-
-  if (pcb_rev >= 3.7) {
-    digitalWrite(oC64RST, LOW);
-    digitalWrite(oC64NMI, HIGH);
-  }
-  else {
-    digitalWrite(oC64RST, HIGH);
-    digitalWrite(oC64NMI, LOW);
-  }
+  digitalWrite(oC64RST, invert_reset_signal);
+  digitalWrite(oC64NMI, invert_nmi_signal);
 
   digitalWrite(oC64NMI, LOW);
   pinMode(pload, OUTPUT);
@@ -246,7 +242,7 @@ void setup() {
 
   // Reset the C64, toggle the output pin
   uint32_t new_state = 1 - (GPIO.out >> oC64RST & 0x1);
-  gpio_set_level(oC64RST, new_state);   
+  gpio_set_level(oC64RST, new_state);
   delay(250);
   gpio_set_level(oC64RST, !new_state);
 
@@ -341,8 +337,8 @@ void Task1code(void* parameter) {
   for (;;) {  // this is an endless loop
 
     unsigned long heartbeat = millis();
-    while (getMessage == false) {           // this is a wait loop
-      delay(10);                            // this task does nothing until the variable getMessage becomes true
+    while (getMessage == false) {  // this is a wait loop
+      delay(10);                   // this task does nothing until the variable getMessage becomes true
       if (millis() > heartbeat + 25000
           and WiFi.isConnected()) {         // while we do nothing we send a heartbeat signal to the server
         heartbeat = millis();               // so that the web server knows you are still on line
@@ -357,7 +353,7 @@ void Task1code(void* parameter) {
         refreshUserPages = false;
         get_full_userlist();
       }
-      if (fullpage == true and WiFi.isConnected()) getMessage=true;
+      if (fullpage == true and WiFi.isConnected()) getMessage = true;
     }
     // when the getMessage variable goes True, we drop out of the wait loop
     getMessage = false;  // first reset the getMessage variable back to false.
@@ -521,14 +517,10 @@ void get_full_userlist() {
   // this is for the user list in the menu (Who is on line?)
   // The second core calls this webpage so the main thread does not suffer performance
   for (int p = 0; p < 6; p++) {
-    userPages[p] = getUserList(p);
-    Serial.print(p);
-    Serial.print("=");
-    Serial.println(userPages[p]);
+    userPages[p] = getUserList(p); 
     char firstchar = userPages[p].charAt(0);
     if ((firstchar == 156 or firstchar == 149) == false) userPages[p] = "      ";
   }
-
   last_up_refresh = millis();
 }
 
@@ -682,21 +674,6 @@ void loop() {
     // 228 = debug purposes
     // 128 = end marker, ignore
 
-// ------------------------------------------------------------------------------
-    // start byte 234 or 233 = C64 ask for the user list
-    // ------------------------------------------------------------------------------
-    if (ch == 234 or ch == 233) {
-      // c64 asks for user list.
-      // we send a max of 20 users in one long string
-      // then the c64 will ask again, we repeat until we have no more. then we just send 128
-
-      static int page = 0;
-      if (ch == 234) page = 0;
-      String ul1 = userPages[page];   
-      send_String_to_c64(ul1);
-      page++;
-    }
-    
     switch (ch) {
       case 254:
         {
@@ -769,9 +746,9 @@ void loop() {
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
             } else {
-              // user does not exist   
-              urgentMessage = " System:  Unknown user:" + RecipientName ;
-              send_error=1;
+              // user does not exist
+              urgentMessage = " System:  Unknown user:" + RecipientName;
+              send_error = 1;
               break;
             }
           }
@@ -793,7 +770,7 @@ void loop() {
           // if it still fails after a few retries, give us an error.
           if (!sc) {
             urgentMessage = " System:        ERROR sending the message";
-            send_error=1;
+            send_error = 1;
           }
           break;
         }
@@ -891,7 +868,7 @@ void loop() {
               // and send the outbuffer
               send_out_buffer_to_C64();
 
-            } else {              
+            } else {
               i = -1;
               sendByte(128);
 #ifdef debug
@@ -923,7 +900,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           sendByte(send_error);
           sendByte(128);
-          send_error=0;
+          send_error = 0;
           break;
         }
 
@@ -1014,12 +991,7 @@ void loop() {
         {
           // ------------------------------------------------------------------------------
           // start byte 245 = C64 checks if the esp is connected at all.. or are we running in a simulator?
-          // ------------------------------------------------------------------------------
-#ifdef debug
-          Serial.println("are we in the Matrix?");
-#endif
-          sendByte(128);
-          refreshUserPages = true;
+          // ------------------------------------------------------------------------------        
           // receive the ROM version number
           receive_buffer_from_C64(1);
           char bns[inbuffersize];
@@ -1028,6 +1000,11 @@ void loop() {
           romVersion = ns;
           Serial.print("ROM Version=");
           Serial.println(romVersion);
+          sendByte(128);
+          refreshUserPages = true;
+#ifdef debug
+          Serial.println("are we in the Matrix?");
+#endif
           break;
         }
       case 244:
@@ -1036,18 +1013,24 @@ void loop() {
           // start byte 244 = C64 sends the command to reset the cartridge to factory defaults
           // ------------------------------------------------------------------------------
           // this will reset all settings
-          settings.begin("mysettings", false);
-          settings.putString("regID", "unregistered!");
-          settings.putString("myNickName", "empty");
-          settings.putString("ssid", "empty");
-          settings.putString("password", "empty");
-          settings.putString("server", "empty");
-          settings.putString("configured", "empty");
-          settings.putULong("lastmessage", 1);
-          settings.putULong("lastprivmsg", 1);
-          settings.end();
-          // now reset the esp
-          ESP.restart();
+          receive_buffer_from_C64(1);
+          char bns[inbuffersize];
+          strncpy(bns, inbuffer, inbuffersize + 1);
+          String ns = bns;
+          if (ns=="RESET!") {
+            settings.begin("mysettings", false);
+            settings.putString("regID", "unregistered!");
+            settings.putString("myNickName", "empty");
+            settings.putString("ssid", "empty");
+            settings.putString("password", "empty");
+            settings.putString("server", "empty");
+            settings.putString("configured", "empty");
+            settings.putULong("lastmessage", 1);
+            settings.putULong("lastprivmsg", 1);
+            settings.end();
+            // now reset the esp
+            ESP.restart();
+          }
           break;
         }
 
@@ -1101,9 +1084,9 @@ void loop() {
           String ns = bns;
 
           regID = getValue(ns, 32, 0);
-          
+
           Serial.println(regID);
-          if (regID.length()!=16){
+          if (regID.length() != 16) {
 #ifdef debug
             Serial.println("bad form");
 #endif
@@ -1175,7 +1158,25 @@ void loop() {
           settings.end();
           break;
         }
-
+      case 234:
+        {
+          // c64 asks for user list, first page.
+          // we send a max of 20 users in one long string
+          userpageCount = 0;
+          String ul1 = userPages[userpageCount];
+          send_String_to_c64(ul1);
+          userpageCount++;
+          break;
+        }
+      case 233:
+        {
+          // c64 asks for user list, second or third page.
+          // we send a max of 20 users in one long string
+          String ul1 = userPages[userpageCount];
+          send_String_to_c64(ul1);
+          userpageCount++;
+          break;
+        }
       case 228:
         {
           // ------------------------------------------------------------------------------
@@ -1207,7 +1208,7 @@ void loop() {
       haveMessage = 3;
     }
 
-    
+
 
   }  // end of "if (dataFromC64)"
 
@@ -1297,30 +1298,20 @@ void receive_buffer_from_C64(int cnt) {
 // Send the content of the outbuffer to the C64
 // ******************************************************************************
 void send_out_buffer_to_C64() {
-// send the content of the outbuffer to the C64
-#ifdef debug
-  Serial.print("out to C64: ");
-#endif
+  // send the content of the outbuffer to the C64
   for (int x = 0; x < outbuffersize - 1; x++) {
     sendByte(Ascii_to_screenCode(outbuffer[x]));
-#ifdef debug
-    Serial.print(outbuffer[x]);
-    if (outbuffer[x]==128) Serial.print("[128]");
-#endif
   }
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
-#ifdef debug
-  Serial.println("");
-#endif
 }
 
 
 // ******************************************************************************
 // pull the NMI line low for a few microseconds
 // ******************************************************************************
-void triggerNMI() { 
+void triggerNMI() {
   // toggle NMI
   uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
   gpio_set_level(oC64NMI, new_state);
