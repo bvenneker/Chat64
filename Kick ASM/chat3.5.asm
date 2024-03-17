@@ -89,7 +89,7 @@ warmstart:                                        //
     sta $de00                                     // write the byte to IO1
                                                   // 
                                                   // Send the ROM version to the cartrdige
-!:    ldx #1                                      // x will be our index when we loop over the version text, we start at 1 to skip the first color byte
+!:  ldx #1                                        // x will be our index when we loop over the version text, we start at 1 to skip the first color byte
 !sendversion:                                     // 
     jsr !wait_for_ready_to_receive+               // wait for ready to receive (bit D7 goes high)
     lda version,x                                 // load a byte from the version text with index x
@@ -685,6 +685,16 @@ jsr !splitRXbuffer+                               // and call the split routine
     jsr !wait_for_ready_to_receive+               // User has selected and confirmed 'reset to factory defaults' function
     lda #244                                      // Load 244 in accumulator
     sta $de00                                     // Send the start byte 244 (244 = reset to factory defaults)
+!:  ldx #0                                        // x will be our index when we loop over the version text, we start at 1 to skip the first color byte
+!sendconfirmation:                                     // 
+    jsr !wait_for_ready_to_receive+               // wait for ready to receive (bit D7 goes high)
+    lda factoryreset,x                                 // load a byte from the version text with index x
+    sta $de00                                     // send it to IO1
+    cmp #128                                      // if the last byte was 128, the buffer is finished
+    beq !+                                        // exit in that case
+    inx                                           // increase the x index
+    jmp !sendconfirmation-  
+
                                                   // 
 !loop_forever:                                    // 
     jmp !loop_forever-                            // Loop forever and wait for the ESP32 to reset the C64
@@ -2356,7 +2366,7 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.59"; .byte 128
+version:                      .byte 151; .text "3.60"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx / SW"; .byte 128
 version_date:                 .byte 151; .text "03/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
@@ -2440,7 +2450,7 @@ screen_lines_low:             .byte $00,$28,$50,$78,$A0,$C8,$F0,$18,$40,$68,$90,
 screen_lines_high:            .byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,$07,$07
 color_lines_high:             .byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db
 petsciColors:                 .byte $05,$05,$1c,$9f,$9c,$1e,$1f,$9e,$81,$95,$96,$97,$98,$99,$9a,$9b
-
+factoryreset:                 .text "RESET!"; .byte 128
 
 //=========================================================================================================
 //  fill the rest of the cartride space with 0
