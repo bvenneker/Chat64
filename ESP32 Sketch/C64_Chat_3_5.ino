@@ -7,9 +7,9 @@
 
 Preferences settings;
 
-String SwVersion = "3.57";
+String SwVersion = "3.58";
 
-bool invert_reset_signal = true;  // false for pcb version 3.7 and up
+bool invert_reset_signal = true;    // false for pcb version 3.7 and up
 bool invert_nmi_signal = false;     // true for pcb version 3.7 and up
 
 // About the regID (registration id)
@@ -517,7 +517,7 @@ void get_full_userlist() {
   // this is for the user list in the menu (Who is on line?)
   // The second core calls this webpage so the main thread does not suffer performance
   for (int p = 0; p < 6; p++) {
-    userPages[p] = getUserList(p); 
+    userPages[p] = getUserList(p);
     char firstchar = userPages[p].charAt(0);
     if ((firstchar == 156 or firstchar == 149) == false) userPages[p] = "      ";
   }
@@ -730,6 +730,7 @@ void loop() {
               toEncode = (toEncode + inbuffer[x]);
             }
           }
+          // see if the message starts with '@'
           byte b = textbuffer[1];
           if (b == 64) {
             for (int x = 2; x < 10; x++) {
@@ -745,17 +746,20 @@ void loop() {
             test_name.toLowerCase();
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
+              msgtype = "private";
             } else {
               // user does not exist
               urgentMessage = " System:  Unknown user:" + RecipientName;
               send_error = 1;
               break;
             }
-          }
+          } else {msgtype = "public";}
+
           int buflen = toEncode.length() + 1;
           char buff[buflen];
           toEncode.toCharArray(buff, buflen);
           String Encoded = my_base64_encode(buff, buflen);
+
           // Now send it with retry!
           bool sc = false;
           int retry = 0;
@@ -771,6 +775,9 @@ void loop() {
           if (!sc) {
             urgentMessage = " System:        ERROR sending the message";
             send_error = 1;
+          } else {
+            // No error, read the message back from the database to show it on screen
+            getMessage = true;
           }
           break;
         }
@@ -991,7 +998,7 @@ void loop() {
         {
           // ------------------------------------------------------------------------------
           // start byte 245 = C64 checks if the esp is connected at all.. or are we running in a simulator?
-          // ------------------------------------------------------------------------------        
+          // ------------------------------------------------------------------------------
           // receive the ROM version number
           receive_buffer_from_C64(1);
           char bns[inbuffersize];
@@ -1017,7 +1024,7 @@ void loop() {
           char bns[inbuffersize];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
-          if (ns=="RESET!") {
+          if (ns == "RESET!") {
             settings.begin("mysettings", false);
             settings.putString("regID", "unregistered!");
             settings.putString("myNickName", "empty");
