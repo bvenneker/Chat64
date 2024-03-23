@@ -7,7 +7,7 @@
 
 Preferences settings;
 
-String SwVersion = "3.58";
+String SwVersion = "3.59";
 
 bool invert_reset_signal = true;    // false for pcb version 3.7 and up
 bool invert_nmi_signal = false;     // true for pcb version 3.7 and up
@@ -66,12 +66,12 @@ String userPages[6];
 volatile bool refreshUserPages = true;
 volatile unsigned long last_up_refresh = millis() + 5000;
 String romVersion = "0.0";
-volatile bool mLEDstatus = false;
+volatile bool internalLEDstatus = false;
 volatile bool fullpage = true;
 char fullpagetext[3500];
 byte send_error = 0;
 int userpageCount = 0;
-
+ 
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -93,7 +93,7 @@ int userpageCount = 0;
 #define sclk GPIO_NUM_25     // serial clock signal to the shift register
 #define pload GPIO_NUM_16    // parallel load signal to the shift register
 
-#define mLED GPIO_NUM_2  // Internal LED
+#define internalLED GPIO_NUM_2  // Internal LED
 
 // ********************************
 // **        INPUTS             **
@@ -114,7 +114,7 @@ void IRAM_ATTR isr_io1() {
                               // make it low so the C64 will not send the next byte
                               // until we are ready for it
   ch = 0;
-  mLEDstatus = true;
+  internalLEDstatus = true;
   digitalWrite(pload, HIGH);  // stop loading parallel data and enable shifting serial data
   ch = shiftIn(sdata, sclk, MSBFIRST);
   dataFromC64 = true;
@@ -188,13 +188,6 @@ void setup() {
   // get the nick name from the eeprom
   myNickName = settings.getString("myNickName", "empty");
 
-  // get the last known message id
-  lastmessage = settings.getULong("lastmessage", 1);
-  lastprivmsg = settings.getULong("lastprivmsg", 1);
-
-  //lastmessage = 1 ;                            // for debugging and testing  //  <<--------------------
-  //lastprivmsg = 1 ;                            // for debugging and testing  //  <<--------------------
-
   // get Chatserver ip/fqdn from eeprom
   server = settings.getString("server", "www.chat64.nl");
 
@@ -216,8 +209,8 @@ void setup() {
   attachInterrupt(resetSwitch, isr_reset, FALLING);  // interrupt for reset button
 
   // define outputs
-  pinMode(mLED, OUTPUT);
-  digitalWrite(mLED, LOW);
+  pinMode(internalLED, OUTPUT);
+  digitalWrite(internalLED, LOW);
   pinMode(CLED, OUTPUT);
   digitalWrite(CLED, LOW);
   pinMode(oC64D0, OUTPUT);
@@ -247,24 +240,20 @@ void setup() {
   gpio_set_level(oC64RST, !new_state);
 
 
-  // try to connect to wifi for 5 seconds
+  // try to connect to wifi for 7 seconds
   WiFi.begin(ssid.c_str(), password.c_str());
-  for (int d = 0; d < 10; d++) {
+  for (int d = 0; d < 70; d++) {
     if (WiFi.isConnected()) {
+      digitalWrite(CLED, HIGH);
       wificonnected = true;
       break;
-    }
-    delay(500);
+    } else delay(100);
   }
 
   // check if we are connected to wifi
   if (WiFi.isConnected()) {
-    // light the LED when connection was succesful
-    digitalWrite(CLED, HIGH);
-    wificonnected = true;
-
     // check the connection with the server.
-    ConnectivityCheck();
+    // ConnectivityCheck();
 
 #ifdef debug
     Serial.print("Connected to WiFi network with IP Address: ");
@@ -273,7 +262,6 @@ void setup() {
     Serial.println(server);
 #endif
 
-
   } else {
 // if there is no wifi, the user can change the credentials in cartridge menu
 #ifdef debug
@@ -281,13 +269,6 @@ void setup() {
     Serial.println(WiFi.localIP());
 #endif
   }
-
-#ifdef debug
-  Serial.print("last public message = ");
-  Serial.println(lastmessage);
-  Serial.print("last private message = ");
-  Serial.println(lastprivmsg);
-#endif
 
 }  // end of setup
 
@@ -337,6 +318,8 @@ void Task1code(void* parameter) {
   for (;;) {  // this is an endless loop
 
     unsigned long heartbeat = millis();
+    while (!WiFi.isConnected()){ delay(20);}
+
     while (getMessage == false) {  // this is a wait loop
       delay(10);                   // this task does nothing until the variable getMessage becomes true
       if (millis() > heartbeat + 25000
@@ -345,39 +328,40 @@ void Task1code(void* parameter) {
         SendMessageToServer("", "", true);  // heartbeat repeats every 25 seconds
         refreshUserPages = true;            // and refresh the user pages (who is online)
       }
-      if (updateUserlist and WiFi.isConnected()) {
+      if (updateUserlist and !fullpage) {
         updateUserlist = false;
         fill_userlist();
       }
-      if (refreshUserPages and WiFi.isConnected()) {
+      if (refreshUserPages and !fullpage) {
         refreshUserPages = false;
         get_full_userlist();
       }
-      if (fullpage == true and WiFi.isConnected()) getMessage = true;
+      if (fullpage == true) getMessage = true;
     }
     // when the getMessage variable goes True, we drop out of the wait loop
     getMessage = false;  // first reset the getMessage variable back to false.
-
     String serverName = "http://" + server + "/readMessage.php";  // set up the server and needed web page
     WiFiClient client;
-    HTTPClient http;
-    http.setReuse(true);
-    http.begin(client, serverName);                                       // start the http connection
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
+    HTTPClient httpb;
+    httpb.setReuse(true);
+    httpb.begin(client, serverName);                                       // start the http connection
+    httpb.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
 
     String lp = "&lp=0";
     if (fullpage == true) {
       msgtype = "public";
       lp = "&lp=1";
+      Serial.println("Get full page");
     }
 
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + lp + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
-
+Serial.println (httpRequestData);
     // Send HTTP POST request
-    int httpResponseCode = http.POST(httpRequestData);
+    int httpResponseCode = httpb.POST(httpRequestData);
     if (httpResponseCode == 200) {           // httpResponseCode should be 200
-      String textOutput = http.getString();  // capture the response from the webpage (it's json)
+      
+      String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
       textOutput.trim();                     // trim the output
 
       if (fullpage == true) {
@@ -405,7 +389,6 @@ void Task1code(void* parameter) {
         bool newid = false;
         if ((msgtype == "private") and (newMessageId != lastprivmsg)) {
           newid = true;
-
           String nickname = doc["nickname"];
           if (nickname != myNickName) { pmSender = '@' + nickname; }
         }
@@ -451,7 +434,7 @@ void Task1code(void* parameter) {
 #endif
     }
     // Free resources
-    http.end();
+    httpb.end();
   }
 }
 
@@ -621,14 +604,14 @@ void loop() {
 
   gpio_set_level(CLED, WiFi.isConnected());
 
-  if (mLEDstatus) {
-    gpio_set_level(mLED, HIGH);
+  if (internalLEDstatus) {
+    gpio_set_level(internalLED, HIGH);
     ledtimer = millis() + 100;
-    mLEDstatus = false;
+    internalLEDstatus = false;
   }
 
   if (ledtimer < millis()) {
-    gpio_set_level(mLED, LOW);
+    gpio_set_level(internalLED, LOW);
   }
 
   gpio_set_level(oC64D7, HIGH);
@@ -668,9 +651,6 @@ void loop() {
     // 235 = C64 sends server configuration status
     // 234 = get user list first page
     // 233 = get user list next page
-
-
-    //
     // 228 = debug purposes
     // 128 = end marker, ignore
 
@@ -698,9 +678,6 @@ void loop() {
             // store the new message id
             if (haveMessage == 1) {
               lastmessage = tempMessageID;
-              settings.begin("mysettings", false);
-              settings.putULong("lastmessage", lastmessage);
-              settings.end();
             }
             haveMessage = 0;
           } else {  // No message for now, just send byte 128.
@@ -859,6 +836,7 @@ void loop() {
             DeserializationError docerror = deserializeJson(doc, msgbuffer);  // deserialize the json document
             if (!docerror) {
               lastmessage = doc["rowid"];
+              oldlastmessage = lastmessage;
               String a = doc["message"];
               String decoded_message = ' ' + my_base64_decode(a);
               int lines = doc["lines"];
@@ -874,10 +852,10 @@ void loop() {
               outbuffersize = msgbuffersize;
               // and send the outbuffer
               send_out_buffer_to_C64();
-
             } else {
               i = -1;
               sendByte(128);
+              fullpage=false;
 #ifdef debug
               Serial.println("Json deserialize error");
 #endif
@@ -890,13 +868,14 @@ void loop() {
               if (millis() > timeOut) {
                 lastmessage = oldlastmessage;
                 ch = 1;
+                fullpage=false;
 #ifdef debug
                 Serial.println("Timeout in fullpage routine");
 #endif
               }
             }
             if (ch != 250) i = -1;
-          }
+          }          
           break;
         }
 
@@ -983,8 +962,6 @@ void loop() {
           server = ns;
           settings.begin("mysettings", false);
           settings.putString("server", ns);     // store the new server name in the eeprom settings
-          settings.putULong("lastmessage", 1);  // when connecting to a new server, we must also reset the message id's
-          settings.putULong("lastprivmsg", 1);
           settings.end();
 
           lastmessage = 1;
@@ -1016,9 +993,9 @@ void loop() {
         }
       case 244:
         {
-          // ------------------------------------------------------------------------------
+          // ---------------------------------------------------------------------------------
           // start byte 244 = C64 sends the command to reset the cartridge to factory defaults
-          // ------------------------------------------------------------------------------
+          // ---------------------------------------------------------------------------------
           // this will reset all settings
           receive_buffer_from_C64(1);
           char bns[inbuffersize];
@@ -1032,8 +1009,6 @@ void loop() {
             settings.putString("password", "empty");
             settings.putString("server", "empty");
             settings.putString("configured", "empty");
-            settings.putULong("lastmessage", 1);
-            settings.putULong("lastprivmsg", 1);
             settings.end();
             // now reset the esp
             ESP.restart();
@@ -1109,8 +1084,6 @@ void loop() {
           break;
         }
 
-
-
       case 238:
         {
           // ------------------------------------------------------------------------------
@@ -1127,11 +1100,10 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 237 = C64 triggers call to receive connection status
           // ------------------------------------------------------------------------------
-          sendByte(ResultColor);  // send color code for green
+          sendByte(ResultColor);  // send color code for green if connected
           send_String_to_c64(ServerConnectResult);
           break;
         }
-
 
       case 236:
         {
@@ -1215,14 +1187,11 @@ void loop() {
       haveMessage = 3;
     }
 
-
-
   }  // end of "if (dataFromC64)"
 
   if (millis() > last_up_refresh + 30000) refreshUserPages = true;
 
 }  // end of main loop
-
 
 // ******************************************************************************
 // void to set a byte in the 74ls244 buffer
