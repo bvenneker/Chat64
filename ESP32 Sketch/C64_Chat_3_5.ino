@@ -164,7 +164,7 @@ void setup() {
   // add a checksum to the mac address.
   byte data[4];
   int i = 0;
-  for (int t = 0; t < macaddress.length(); t = t + 2) {
+  for (unsigned int t = 0; t < macaddress.length(); t = t + 2) {
     String p = macaddress.substring(t, t + 2);
     char n[3];
     p.toCharArray(n, 3);
@@ -242,12 +242,12 @@ void setup() {
 
   // Reset the C64, toggle the output pin
   uint32_t new_state = 1 - (GPIO.out >> oC64RST & 0x1);
-  gpio_set_level(oC64RST, new_state);
+  digitalWrite(oC64RST, new_state);
   delay(250);
-  gpio_set_level(oC64RST, !new_state);
-
+  digitalWrite(oC64RST, !new_state);
 
   // try to connect to wifi for 5 seconds
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
   for (int d = 0; d < 10; d++) {
     if (WiFi.isConnected()) {
@@ -531,7 +531,7 @@ String getUserList(int page) {
   http.begin(client, serverName);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   String httpRequestData = "regid=" + regID + "&page=" + page + "&version=2";
-  int httpResponseCode = http.POST(httpRequestData);
+  http.POST(httpRequestData);
   String result = "0";
   result = http.getString();
   result.trim();
@@ -619,22 +619,22 @@ void ConnectivityCheck() {
 unsigned long ledtimer = 0;
 void loop() {
 
-  gpio_set_level(CLED, WiFi.isConnected());
+  digitalWrite(CLED, WiFi.isConnected());
 
   if (mLEDstatus) {
-    gpio_set_level(mLED, HIGH);
+    digitalWrite(mLED, HIGH);
     ledtimer = millis() + 100;
     mLEDstatus = false;
   }
 
   if (ledtimer < millis()) {
-    gpio_set_level(mLED, LOW);
+    digitalWrite(mLED, LOW);
   }
 
-  gpio_set_level(oC64D7, HIGH);
+  digitalWrite(oC64D7, HIGH);
   if (dataFromC64) {
     dataFromC64 = false;
-    gpio_set_level(oC64D7, LOW);  // flow control
+    digitalWrite(oC64D7, LOW);  // flow control
 #ifdef debug
     Serial.print("incomming command: ");
     Serial.println(ch);
@@ -794,7 +794,7 @@ void loop() {
           }
 
           // inbuffer now contains "SSID password timeoffset"
-          char bns[inbuffersize];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
@@ -810,6 +810,7 @@ void loop() {
           settings.putString("password", password);
           settings.putString("timeoffset", timeoffset);
           settings.end();
+          WiFi.mode(WIFI_STA);
           WiFi.begin(ssid.c_str(), password.c_str());
           break;
         }
@@ -977,7 +978,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           server = ns;
@@ -1001,7 +1002,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // receive the ROM version number
           receive_buffer_from_C64(1);
-          char bns[inbuffersize];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           romVersion = ns;
@@ -1021,7 +1022,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // this will reset all settings
           receive_buffer_from_C64(1);
-          char bns[inbuffersize];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           if (ns == "RESET!") {
@@ -1086,7 +1087,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
           // inbuffer now contains "registrationid nickname"
-          char bns[inbuffersize];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
@@ -1116,10 +1117,8 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 238 = C64 triggers call to the chatserver to test connectivity
           // ------------------------------------------------------------------------------
-          if (ch == 238) {
-            ConnectivityCheck();
-            break;
-          }
+          ConnectivityCheck();
+          break;
         }
 
       case 237:
@@ -1156,7 +1155,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           configured = ns;
@@ -1269,7 +1268,7 @@ void receive_buffer_from_C64(int cnt) {
   int i = 0;
 
   while (cnt > 0) {
-    gpio_set_level(oC64D7, HIGH);  // ready for next byte
+    digitalWrite(oC64D7, HIGH);  // ready for next byte
     unsigned long timeOut = millis() + 500;
     while (dataFromC64 == false) {
       delayMicroseconds(2);  // wait for next byte
@@ -1281,7 +1280,7 @@ void receive_buffer_from_C64(int cnt) {
 #endif
       }
     }
-    gpio_set_level(oC64D7, LOW);
+    digitalWrite(oC64D7, LOW);
     dataFromC64 = false;
     inbuffer[i] = ch;
     i++;
@@ -1321,10 +1320,10 @@ void send_out_buffer_to_C64() {
 void triggerNMI() {
   // toggle NMI
   uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
-  gpio_set_level(oC64NMI, new_state);
+  digitalWrite(oC64NMI, new_state);
   delayMicroseconds(125);  // minimal 100 microseconds delay
   // And toggle back
-  gpio_set_level(oC64NMI, !new_state);
+  digitalWrite(oC64NMI, !new_state);
 }
 
 
