@@ -342,7 +342,7 @@ void Task1code(void* parameter) {
       }
       if (fullpage == true) getMessage = true;
     }
-    Serial.println("******** *** Go GetMessage");
+    
     // when the getMessage variable goes True, we drop out of the wait loop
     getMessage = false;                                           // first reset the getMessage variable back to false.
     String serverName = "http://" + server + "/readMessage.php";  // set up the server and needed web page
