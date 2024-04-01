@@ -1135,7 +1135,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize] + 1;
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           configured = ns;
