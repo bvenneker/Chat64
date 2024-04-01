@@ -509,6 +509,8 @@ jsr !splitRXbuffer+                               //
     jsr !delay+                                   // and call the delay subroutine
     jsr !delay+                                   // Again
     jsr !delay+                                   // and Again
+    jsr !delay+                                   // and Again
+    jsr !delay+                                   // and Again
     jsr !delay+                                   // and Again (The Cure, A Forest)
     ldx #23 ; jsr $e9ff                           // Clear line 23 (where the connection status is)
     jsr !callstatus+                              // Check the configuration status
@@ -2446,10 +2448,10 @@ text_user_list:               .byte 151; .text "USER LIST";.byte 128
 text_F7_exit:                 .byte 147; .text "[ F7 ] Exit"; .byte 128
                                                   
 * = $9f00 "Constants_page8"                       
-screen_lines_low:             .byte $00,$28,$50,$78,$A0,$C8,$F0,$18,$40,$68,$90,$b8,$e0,$08,$30,$58,$80,$a8,$d0,$f8,$20,$48,$70,$98,$c0
-screen_lines_high:            .byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,$07,$07
-color_lines_high:             .byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db
-petsciColors:                 .byte $05,$05,$1c,$9f,$9c,$1e,$1f,$9e,$81,$95,$96,$97,$98,$99,$9a,$9b
+screen_lines_low:             .byte $00,$28,$50,$78,$A0,$C8,$F0,$18,$40,$68,$90,$b8,$e0,$08,$30,$58,$80,$a8,$d0,$f8,$20,$48,$70,$98,$c0 // lookup table
+screen_lines_high:            .byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,$07,$07 // lookup table
+color_lines_high:             .byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db // lookup table
+petsciColors:                 .byte $05,$05,$1c,$9f,$9c,$1e,$1f,$9e,$81,$95,$96,$97,$98,$99,$9a,$9b // lookup table
 factoryreset:                 .text "RESET!"; .byte 128
 
 //=========================================================================================================
