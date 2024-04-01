@@ -7,10 +7,10 @@
 
 Preferences settings;
 
-String SwVersion = "3.59";
+String SwVersion = "3.60";
 
-bool invert_reset_signal = true;    // false for pcb version 3.7 and up
-bool invert_nmi_signal = false;     // true for pcb version 3.7 and up
+bool invert_reset_signal = false;  // false for pcb version 3.7 and up
+bool invert_nmi_signal = true;     // true for pcb version 3.7 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -71,7 +71,7 @@ volatile bool fullpage = true;
 char fullpagetext[3500];
 byte send_error = 0;
 int userpageCount = 0;
- 
+
 // ********************************
 // **        OUTPUTS             **
 // ********************************
@@ -239,6 +239,7 @@ void setup() {
   delay(250);
   digitalWrite(oC64RST, !new_state);
 
+
   // try to connect to wifi for 7 seconds
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
@@ -318,7 +319,10 @@ void Task1code(void* parameter) {
   for (;;) {  // this is an endless loop
 
     unsigned long heartbeat = millis();
-    while (!WiFi.isConnected()){ delay(20);}
+
+    while (!WiFi.isConnected()) {
+      delay(20);
+    }
 
     while (getMessage == false) {  // this is a wait loop
       delay(10);                   // this task does nothing until the variable getMessage becomes true
@@ -338,8 +342,9 @@ void Task1code(void* parameter) {
       }
       if (fullpage == true) getMessage = true;
     }
+    Serial.println("******** *** Go GetMessage");
     // when the getMessage variable goes True, we drop out of the wait loop
-    getMessage = false;  // first reset the getMessage variable back to false.
+    getMessage = false;                                           // first reset the getMessage variable back to false.
     String serverName = "http://" + server + "/readMessage.php";  // set up the server and needed web page
     WiFiClient client;
     HTTPClient httpb;
@@ -356,13 +361,14 @@ void Task1code(void* parameter) {
 
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + lp + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
-Serial.println (httpRequestData);
+    Serial.println(httpRequestData);
     // Send HTTP POST request
     int httpResponseCode = httpb.POST(httpRequestData);
-    if (httpResponseCode == 200) {           // httpResponseCode should be 200
-      
+    Serial.println("******** *** Request Done");
+    if (httpResponseCode == 200) {  // httpResponseCode should be 200
+
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
-      textOutput.trim();                     // trim the output
+      textOutput.trim();                      // trim the output
 
       if (fullpage == true) {
         msgbuffersize = textOutput.length() + 1;
@@ -730,7 +736,9 @@ void loop() {
               send_error = 1;
               break;
             }
-          } else {msgtype = "public";}
+          } else {
+            msgtype = "public";
+          }
 
           int buflen = toEncode.length() + 1;
           char buff[buflen];
@@ -856,7 +864,7 @@ void loop() {
             } else {
               i = -1;
               sendByte(128);
-              fullpage=false;
+              fullpage = false;
 #ifdef debug
               Serial.println("Json deserialize error");
 #endif
@@ -869,14 +877,14 @@ void loop() {
               if (millis() > timeOut) {
                 lastmessage = oldlastmessage;
                 ch = 1;
-                fullpage=false;
+                fullpage = false;
 #ifdef debug
                 Serial.println("Timeout in fullpage routine");
 #endif
               }
             }
             if (ch != 250) i = -1;
-          }          
+          }
           break;
         }
 
@@ -962,7 +970,7 @@ void loop() {
           String ns = bns;
           server = ns;
           settings.begin("mysettings", false);
-          settings.putString("server", ns);     // store the new server name in the eeprom settings
+          settings.putString("server", ns);  // store the new server name in the eeprom settings
           settings.end();
 
           lastmessage = 1;
@@ -1127,7 +1135,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize + 1];
+          char bns[inbuffersize] + 1;
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           configured = ns;
@@ -1196,14 +1204,14 @@ void loop() {
 // void to set a byte in the 74ls244 buffer
 // ******************************************************************************
 void outByte(byte c) {
-  gpio_set_level(oC64D0, bool(c & B00000001));
-  gpio_set_level(oC64D1, bool(c & B00000010));
-  gpio_set_level(oC64D2, bool(c & B00000100));
-  gpio_set_level(oC64D3, bool(c & B00001000));
-  gpio_set_level(oC64D4, bool(c & B00010000));
-  gpio_set_level(oC64D5, bool(c & B00100000));
-  gpio_set_level(oC64D6, bool(c & B01000000));
-  gpio_set_level(oC64D7, bool(c & B10000000));
+  digitalWrite(oC64D0, bool(c & B00000001));
+  digitalWrite(oC64D1, bool(c & B00000010));
+  digitalWrite(oC64D2, bool(c & B00000100));
+  digitalWrite(oC64D3, bool(c & B00001000));
+  digitalWrite(oC64D4, bool(c & B00010000));
+  digitalWrite(oC64D5, bool(c & B00100000));
+  digitalWrite(oC64D6, bool(c & B01000000));
+  digitalWrite(oC64D7, bool(c & B10000000));
 }
 
 // ******************************************************************************
