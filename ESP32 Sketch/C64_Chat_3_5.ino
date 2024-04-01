@@ -1018,6 +1018,7 @@ void loop() {
             settings.putString("password", "empty");
             settings.putString("server", "empty");
             settings.putString("configured", "empty");
+            settings.putString("timeoffset", "+0");
             settings.end();
             // now reset the esp
             ESP.restart();
