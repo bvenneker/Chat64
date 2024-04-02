@@ -28,5 +28,6 @@ CREATE TABLE `users` (
   `version` varchar(10) DEFAULT NULL,
   `eeprom` varchar(10) DEFAULT NULL,
   `blocked` tinyint(1) NOT NULL DEFAULT '0',
+  `sendmail` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`rowid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
