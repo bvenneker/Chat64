@@ -1,0 +1,38 @@
+This document explains how to run the chat64 binary in the vice emulator and communicates with a real esp32 connected to it. This was tested in linux only.
+
+On the esp32, the default usb serial bus is used to program the firmware and also run a monitoring console. A second usb to TTL converter like this one https://www.adafruit.com/product/954 has to be connected to the esp32 like this:
+
+black wire : pin gnd
+white wire : pin 17
+green wire : pin 16
+
+This second usb port is used to emulate access on the cartridge lines using a very simple serial based communication protocol.
+
+The chat64 binary does not require any change. The firmware for the esp32 however needs to be compiled with the #define VICE_MODE. Just uncomment the proper line in the program, compile and flash your esp32
+
+The support in vice is not merged in the official branch yet. You can pick up a copy from my local repository here:
+
+git clone -b chat64 https://github.com/heneault/vice-mirror.git
+
+To configure and compile vice refers to its building instruction for Linux. You need to install a bunch of dependency packages and install the required ROMs. 
+
+To configure and compile I used the command :
+cd vice
+./configure --enable-gtk3ui
+make
+
+Before running it, first connect the esp32 default usb serial monitor. Flash it if necessary and open a serial monitor console on it. It should probably be identified as /dev/ttyUSB0
+
+Then, connect the second usb serial port. In linux, it should be probably be detected as /dev/ttyUSB1
+
+You can now start vice like this (from the vice/src folder):
+./x64sc -rsdev1 /dev/ttyUSB1 -rsdev1baud 115200 -cartchat64 cartridge.bin
+
+Adjust the path to the serial device or cartridge binary to your needs.
+
+The application should start and communicate with the esp32!
+
+Yannick Heneault
+yheneaul@gmail.com
+March 31, 2024
+
