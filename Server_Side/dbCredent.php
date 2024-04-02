@@ -1,4 +1,7 @@
 <?php
+//Sven Pook v2
+
+
 $hostname = 'localhost'; 
 $dbname = 'chat64';
 $username = ********;  

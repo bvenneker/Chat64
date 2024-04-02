@@ -1,5 +1,6 @@
 <?php
-//SPK 01
+//Sven Pook v2
+
 
 require_once('../dbCredent.php');
 
