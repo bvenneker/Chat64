@@ -5,6 +5,19 @@
 
 #define debug
 
+// Uncomment to enable VICE support
+// #define VICE_MODE
+
+//on esp32 my uart is connected like this
+// black : pin gnd
+// white : pin 17
+// green : pin 16
+//
+
+#ifdef VICE_MODE
+bool accept_serial_command = true;
+#endif
+
 Preferences settings;
 
 String SwVersion = "3.60";
@@ -32,8 +45,8 @@ int pmCount = 0;       // counter for the number of unread private messages
 String pmSender = "";  // name of the personal message sender
 
 // You do NOT need to change any of these settings!
-String ssid = "empty";      // do not change this!
-String password = "empty";  // do not change this!
+String ssid = "empty";                   // do not change this!
+String password = "empty";               // do not change this!
 String timeoffset = "empty";
 String server = "empty";                 // do not change this!
 String configured = "empty";             // do not change this!
@@ -79,7 +92,7 @@ int userpageCount = 0;
 // for usable io pins!
 
 #define oC64D0 GPIO_NUM_5   // data bit 0 for data from the ESP32 to the C64
-#define oC64D1 GPIO_NUM_33  // data bit 1 foswitch data fswitchom the ESP32 to the C64
+#define oC64D1 GPIO_NUM_33  // data bit 1 for data from the ESP32 to the C64
 #define oC64D2 GPIO_NUM_14  // data bit 2 for data from the ESP32 to the C64
 #define oC64D3 GPIO_NUM_23  // data bit 3 for data from the ESP32 to the C64
 #define oC64D4 GPIO_NUM_13  // data bit 4 for data from the ESP32 to the C64
@@ -111,8 +124,8 @@ void IRAM_ATTR isr_io1() {
   // This signal goes LOW when the commodore writes to (or reads from) the IO1 address space
   // In our case the Commodore 64 only WRITES the IO1 address space, so ESP32 can read the data.
   digitalWrite(oC64D7, LOW);  // this pin is used for flow controll,
-                              // make it low so the C64 will not send the next byte
-                              // until we are ready for it
+  // make it low so the C64 will not send the next byte
+  // until we are ready for it
   ch = 0;
   internalLEDstatus = true;
   digitalWrite(pload, HIGH);  // stop loading parallel data and enable shifting serial data
@@ -134,15 +147,72 @@ void IRAM_ATTR isr_io2() {
 // Interrupt routine, to restart the esp32
 // *************************************************
 void IRAM_ATTR isr_reset() {
+   reboot();
+}
+
+void reboot() {
+#ifdef VICE_MODE
+  send_serial_reboot();
+#endif
+
   ESP.restart();
 }
+
+#ifdef VICE_MODE
+void receive_serial_command() {
+  static bool receiving_command = false; 
+  while (Serial2.available() > 0) {
+    byte buf = Serial2.read();
+    if (!receiving_command && buf == '$')
+    {
+      receiving_command = true;
+    }
+    else
+    {
+      if (buf == 'I')
+      {
+        ch = Serial2.parseInt();
+        internalLEDstatus = true;
+        dataFromC64 = true;
+      }
+      else if (buf == 'J')
+      {
+        io2 = true;
+      }
+
+      receiving_command = false;
+    }
+  }
+}
+
+void send_serial_data(byte b) {
+  Serial2.print("$D");
+  Serial2.print(b);
+  Serial2.write((uint8_t)0);
+}
+
+void send_serial_nmi() {
+  Serial2.print("$N");
+  Serial2.write((uint8_t)0);
+}
+
+void send_serial_reboot() {
+  Serial2.print("$R");
+  Serial2.write((uint8_t)0);
+  delay(100);
+}
+#endif
 
 // *************************************************
 //  SETUP
 // *************************************************
 void setup() {
   Serial.begin(115200);
-
+  
+#ifdef VICE_MODE
+  Serial2.begin(115200);
+#endif
+  
   // we create a task for the second (unused) core of the esp32
   // this task will communicate with the web site while the other core
   // is busy talking to the C64
@@ -198,6 +268,7 @@ void setup() {
   settings.end();
 
   // define inputs
+#ifndef VICE_MODE
   pinMode(sdata, INPUT);
   pinMode(C64IO1, INPUT_PULLDOWN);
   pinMode(C64IO2, INPUT_PULLUP);
@@ -238,7 +309,7 @@ void setup() {
   digitalWrite(oC64RST, new_state);
   delay(250);
   digitalWrite(oC64RST, !new_state);
-
+#endif
 
   // try to connect to wifi for 7 seconds
   WiFi.mode(WIFI_STA);
@@ -264,7 +335,7 @@ void setup() {
 #endif
 
   } else {
-// if there is no wifi, the user can change the credentials in cartridge menu
+    // if there is no wifi, the user can change the credentials in cartridge menu
 #ifdef debug
     Serial.print("NO Wifi connection! : ");
     Serial.println(WiFi.localIP());
@@ -324,8 +395,8 @@ void Task1code(void* parameter) {
       delay(20);
     }
 
-    while (getMessage == false) {  // this is a wait loop
-      delay(10);                   // this task does nothing until the variable getMessage becomes true
+    while (getMessage == false) {           // this is a wait loop
+      delay(10);                            // this task does nothing until the variable getMessage becomes true
       if (millis() > heartbeat + 25000
           and WiFi.isConnected()) {         // while we do nothing we send a heartbeat signal to the server
         heartbeat = millis();               // so that the web server knows you are still on line
@@ -344,7 +415,7 @@ void Task1code(void* parameter) {
     }
     
     // when the getMessage variable goes True, we drop out of the wait loop
-    getMessage = false;                                           // first reset the getMessage variable back to false.
+    getMessage = false;  // first reset the getMessage variable back to false.
     String serverName = "http://" + server + "/readMessage.php";  // set up the server and needed web page
     WiFiClient client;
     HTTPClient httpb;
@@ -361,14 +432,14 @@ void Task1code(void* parameter) {
 
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + lp + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
-    Serial.println(httpRequestData);
+Serial.println (httpRequestData);
     // Send HTTP POST request
     int httpResponseCode = httpb.POST(httpRequestData);
     Serial.println("******** *** Request Done");
-    if (httpResponseCode == 200) {  // httpResponseCode should be 200
-
+    if (httpResponseCode == 200) {                       // httpResponseCode should be 200
+      
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
-      textOutput.trim();                      // trim the output
+      textOutput.trim();                                 // trim the output
 
       if (fullpage == true) {
         msgbuffersize = textOutput.length() + 1;
@@ -377,7 +448,7 @@ void Task1code(void* parameter) {
         fullpage = false;
       }
 
-      msgbuffersize = textOutput.length() + 1;  //
+      msgbuffersize = textOutput.length() + 1;           //
       if (msgbuffersize > 498) {                // that should never happen
         msgbuffersize = 498;
 #ifdef debug
@@ -572,7 +643,7 @@ void ConnectivityCheck() {
 
   http.begin(client, serverName);                                       // Connect to configured server
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
-                                                                        // Prepare your HTTP POST request data
+  // Prepare your HTTP POST request data
   String httpRequestData = "checkcon=1";                                // Send HTTP POST request
   int httpResponseCode = http.POST(httpRequestData);                    // httpResponseCode should be "connected"
   if (httpResponseCode > 0) {                                           // get the response from the php page.
@@ -621,6 +692,16 @@ void loop() {
   }
 
   digitalWrite(oC64D7, HIGH);
+
+#ifdef VICE_MODE
+  if (accept_serial_command) {
+    accept_serial_command = false;
+    send_serial_data(0x80);
+  }
+
+  receive_serial_command();
+#endif
+
   if (dataFromC64) {
     dataFromC64 = false;
     digitalWrite(oC64D7, LOW);  // flow control
@@ -735,7 +816,7 @@ void loop() {
               urgentMessage = " System:  Unknown user:" + RecipientName;
               send_error = 1;
               break;
-            }
+          }
           } else {
             msgtype = "public";
           }
@@ -779,7 +860,7 @@ void loop() {
           }
 
           // inbuffer now contains "SSID password timeoffset"
-          char bns[inbuffersize + 1];
+          char bns[inbuffersize+1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
@@ -831,7 +912,7 @@ void loop() {
               cc = fullpagetext[i++];
               msgbuffer[0] = cc;
               p++;
-            }
+          }
             // fill buffer until we find '}'
             if (cc == '{') {
               p = 1;
@@ -860,11 +941,11 @@ void loop() {
               // copy the buffer size also
               outbuffersize = msgbuffersize;
               // and send the outbuffer
-              send_out_buffer_to_C64();
+              send_out_buffer_to_C64();     
             } else {
               i = -1;
               sendByte(128);
-              fullpage = false;
+              fullpage=false;
 #ifdef debug
               Serial.println("Json deserialize error");
 #endif
@@ -877,11 +958,14 @@ void loop() {
               if (millis() > timeOut) {
                 lastmessage = oldlastmessage;
                 ch = 1;
-                fullpage = false;
+                fullpage=false;
 #ifdef debug
                 Serial.println("Timeout in fullpage routine");
 #endif
               }
+#ifdef VICE_MODE
+              receive_serial_command();
+#endif              
             }
             if (ch != 250) i = -1;
           }
@@ -965,12 +1049,12 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize + 1];
+          char bns[inbuffersize+1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           server = ns;
           settings.begin("mysettings", false);
-          settings.putString("server", ns);  // store the new server name in the eeprom settings
+          settings.putString("server", ns);     // store the new server name in the eeprom settings
           settings.end();
 
           lastmessage = 1;
@@ -987,7 +1071,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // receive the ROM version number
           receive_buffer_from_C64(1);
-          char bns[inbuffersize + 1];
+          char bns[inbuffersize+1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           romVersion = ns;
@@ -1021,7 +1105,7 @@ void loop() {
             settings.putString("timeoffset", "+0");
             settings.end();
             // now reset the esp
-            ESP.restart();
+            reboot();
           }
           break;
         }
@@ -1071,7 +1155,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
           // inbuffer now contains "registrationid nickname"
-          char bns[inbuffersize + 1];
+          char bns[inbuffersize+1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
@@ -1136,7 +1220,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize + 1];
+          char bns[inbuffersize+1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           configured = ns;
@@ -1195,6 +1279,10 @@ void loop() {
       haveMessage = 3;
     }
 
+#ifdef VICE_MODE
+    accept_serial_command = true;
+#endif
+
   }  // end of "if (dataFromC64)"
 
   if (millis() > last_up_refresh + 30000) refreshUserPages = true;
@@ -1205,6 +1293,9 @@ void loop() {
 // void to set a byte in the 74ls244 buffer
 // ******************************************************************************
 void outByte(byte c) {
+#ifdef VICE_MODE
+  send_serial_data(c);
+#else
   digitalWrite(oC64D0, bool(c & B00000001));
   digitalWrite(oC64D1, bool(c & B00000010));
   digitalWrite(oC64D2, bool(c & B00000100));
@@ -1213,6 +1304,7 @@ void outByte(byte c) {
   digitalWrite(oC64D5, bool(c & B00100000));
   digitalWrite(oC64D6, bool(c & B01000000));
   digitalWrite(oC64D7, bool(c & B10000000));
+#endif
 }
 
 // ******************************************************************************
@@ -1248,6 +1340,11 @@ void receive_buffer_from_C64(int cnt) {
   while (cnt > 0) {
     digitalWrite(oC64D7, HIGH);  // ready for next byte
     unsigned long timeOut = millis() + 500;
+
+#ifdef VICE_MODE
+    send_serial_data(0x80);
+#endif
+
     while (dataFromC64 == false) {
       delayMicroseconds(2);  // wait for next byte
       if (millis() > timeOut) {
@@ -1257,6 +1354,11 @@ void receive_buffer_from_C64(int cnt) {
         Serial.println("Timeout in receive buffer");
 #endif
       }
+
+#ifdef VICE_MODE
+      receive_serial_command();
+#endif
+
     }
     digitalWrite(oC64D7, LOW);
     dataFromC64 = false;
@@ -1296,12 +1398,19 @@ void send_out_buffer_to_C64() {
 // pull the NMI line low for a few microseconds
 // ******************************************************************************
 void triggerNMI() {
+
+#ifdef VICE_MODE
+  send_serial_nmi();
+#else
+
   // toggle NMI
   uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
   digitalWrite(oC64NMI, new_state);
   delayMicroseconds(125);  // minimal 100 microseconds delay
   // And toggle back
   digitalWrite(oC64NMI, !new_state);
+
+#endif
 }
 
 
@@ -1322,6 +1431,11 @@ void sendByte(byte b) {
       Serial.println("Timeout in sendByte");
 #endif
     }
+
+#ifdef VICE_MODE
+    receive_serial_command();
+#endif
+
   }
   io2 = false;
 }
