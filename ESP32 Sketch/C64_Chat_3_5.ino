@@ -5,6 +5,19 @@
 
 #define debug
 
+// Uncomment to enable VICE support
+// #define VICE_MODE
+
+//on esp32 my uart is connected like this
+// black : pin gnd
+// white : pin 17
+// green : pin 16
+//
+
+#ifdef VICE_MODE
+bool accept_serial_command = true;
+#endif
+
 Preferences settings;
 
 String SwVersion = "3.60";
@@ -79,7 +92,7 @@ int userpageCount = 0;
 // for usable io pins!
 
 #define oC64D0 GPIO_NUM_5   // data bit 0 for data from the ESP32 to the C64
-#define oC64D1 GPIO_NUM_33  // data bit 1 foswitch data fswitchom the ESP32 to the C64
+#define oC64D1 GPIO_NUM_33  // data bit 1 for data from the ESP32 to the C64
 #define oC64D2 GPIO_NUM_14  // data bit 2 for data from the ESP32 to the C64
 #define oC64D3 GPIO_NUM_23  // data bit 3 for data from the ESP32 to the C64
 #define oC64D4 GPIO_NUM_13  // data bit 4 for data from the ESP32 to the C64
@@ -134,15 +147,72 @@ void IRAM_ATTR isr_io2() {
 // Interrupt routine, to restart the esp32
 // *************************************************
 void IRAM_ATTR isr_reset() {
+   reboot();
+}
+
+void reboot() {
+#ifdef VICE_MODE
+  send_serial_reboot();
+#endif
+
   ESP.restart();
 }
+
+#ifdef VICE_MODE
+void receive_serial_command() {
+  static bool receiving_command = false; 
+  while (Serial2.available() > 0) {
+    byte buf = Serial2.read();
+    if (!receiving_command && buf == '$')
+    {
+      receiving_command = true;
+    }
+    else
+    {
+      if (buf == 'I')
+      {
+        ch = Serial2.parseInt();
+        internalLEDstatus = true;
+        dataFromC64 = true;
+      }
+      else if (buf == 'J')
+      {
+        io2 = true;
+      }
+
+      receiving_command = false;
+    }
+  }
+}
+
+void send_serial_data(byte b) {
+  Serial2.print("$D");
+  Serial2.print(b);
+  Serial2.write((uint8_t)0);
+}
+
+void send_serial_nmi() {
+  Serial2.print("$N");
+  Serial2.write((uint8_t)0);
+}
+
+void send_serial_reboot() {
+  Serial2.print("$R");
+  Serial2.write((uint8_t)0);
+  delay(100);
+}
+#endif
 
 // *************************************************
 //  SETUP
 // *************************************************
 void setup() {
   Serial.begin(115200);
-
+  
+#ifdef VICE_MODE
+  Serial2.begin(115200);
+#endif
+  
   // we create a task for the second (unused) core of the esp32
   // this task will communicate with the web site while the other core
   // is busy talking to the C64
@@ -198,6 +268,7 @@ void setup() {
   settings.end();
 
   // define inputs
+#ifndef VICE_MODE
   pinMode(sdata, INPUT);
   pinMode(C64IO1, INPUT_PULLDOWN);
   pinMode(C64IO2, INPUT_PULLUP);
@@ -238,7 +309,7 @@ void setup() {
   digitalWrite(oC64RST, new_state);
   delay(250);
   digitalWrite(oC64RST, !new_state);
-
+#endif
 
   // try to connect to wifi for 7 seconds
   WiFi.mode(WIFI_STA);
@@ -621,6 +692,16 @@ void loop() {
   }
 
   digitalWrite(oC64D7, HIGH);
+
+#ifdef VICE_MODE
+  if (accept_serial_command) {
+    accept_serial_command = false;
+    send_serial_data(0x80);
+  }
+
+  receive_serial_command();
+#endif
+
   if (dataFromC64) {
     dataFromC64 = false;
     digitalWrite(oC64D7, LOW);  // flow control
@@ -882,6 +963,9 @@ void loop() {
                 Serial.println("Timeout in fullpage routine");
 #endif
               }
+#ifdef VICE_MODE
+              receive_serial_command();
+#endif              
             }
             if (ch != 250) i = -1;
           }
@@ -1021,7 +1105,7 @@ void loop() {
             settings.putString("timeoffset", "+0");
             settings.end();
             // now reset the esp
-            ESP.restart();
+            reboot();
           }
           break;
         }
@@ -1195,6 +1279,10 @@ void loop() {
       haveMessage = 3;
     }
 
+#ifdef VICE_MODE
+    accept_serial_command = true;
+#endif
+
   }  // end of "if (dataFromC64)"
 
   if (millis() > last_up_refresh + 30000) refreshUserPages = true;
@@ -1205,6 +1293,9 @@ void loop() {
 // void to set a byte in the 74ls244 buffer
 // ******************************************************************************
 void outByte(byte c) {
+#ifdef VICE_MODE
+  send_serial_data(c);
+#else
   digitalWrite(oC64D0, bool(c & B00000001));
   digitalWrite(oC64D1, bool(c & B00000010));
   digitalWrite(oC64D2, bool(c & B00000100));
@@ -1213,6 +1304,7 @@ void outByte(byte c) {
   digitalWrite(oC64D5, bool(c & B00100000));
   digitalWrite(oC64D6, bool(c & B01000000));
   digitalWrite(oC64D7, bool(c & B10000000));
+#endif
 }
 
 // ******************************************************************************
@@ -1248,6 +1340,11 @@ void receive_buffer_from_C64(int cnt) {
   while (cnt > 0) {
     digitalWrite(oC64D7, HIGH);  // ready for next byte
     unsigned long timeOut = millis() + 500;
+
+#ifdef VICE_MODE
+    send_serial_data(0x80);
+#endif
+
     while (dataFromC64 == false) {
       delayMicroseconds(2);  // wait for next byte
       if (millis() > timeOut) {
@@ -1257,6 +1354,11 @@ void receive_buffer_from_C64(int cnt) {
         Serial.println("Timeout in receive buffer");
 #endif
       }
+
+#ifdef VICE_MODE
+      receive_serial_command();
+#endif
+
     }
     digitalWrite(oC64D7, LOW);
     dataFromC64 = false;
@@ -1296,12 +1398,19 @@ void send_out_buffer_to_C64() {
 // pull the NMI line low for a few microseconds
 // ******************************************************************************
 void triggerNMI() {
+
+#ifdef VICE_MODE
+  send_serial_nmi();
+#else
+
   // toggle NMI
   uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
   digitalWrite(oC64NMI, new_state);
   delayMicroseconds(125);  // minimal 100 microseconds delay
   // And toggle back
   digitalWrite(oC64NMI, !new_state);
+
+#endif
 }
 
 
@@ -1322,6 +1431,11 @@ void sendByte(byte b) {
       Serial.println("Timeout in sendByte");
 #endif
     }
+
+#ifdef VICE_MODE
+    receive_serial_command();
+#endif
+
   }
   io2 = false;
 }
