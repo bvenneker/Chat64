@@ -45,8 +45,8 @@ int pmCount = 0;       // counter for the number of unread private messages
 String pmSender = "";  // name of the personal message sender
 
 // You do NOT need to change any of these settings!
-String ssid = "empty";                   // do not change this!
-String password = "empty";               // do not change this!
+String ssid = "empty";      // do not change this!
+String password = "empty";  // do not change this!
 String timeoffset = "empty";
 String server = "empty";                 // do not change this!
 String configured = "empty";             // do not change this!
@@ -124,8 +124,8 @@ void IRAM_ATTR isr_io1() {
   // This signal goes LOW when the commodore writes to (or reads from) the IO1 address space
   // In our case the Commodore 64 only WRITES the IO1 address space, so ESP32 can read the data.
   digitalWrite(oC64D7, LOW);  // this pin is used for flow controll,
-  // make it low so the C64 will not send the next byte
-  // until we are ready for it
+                              // make it low so the C64 will not send the next byte
+                              // until we are ready for it
   ch = 0;
   internalLEDstatus = true;
   digitalWrite(pload, HIGH);  // stop loading parallel data and enable shifting serial data
@@ -335,7 +335,7 @@ void setup() {
 #endif
 
   } else {
-    // if there is no wifi, the user can change the credentials in cartridge menu
+// if there is no wifi, the user can change the credentials in cartridge menu
 #ifdef debug
     Serial.print("NO Wifi connection! : ");
     Serial.println(WiFi.localIP());
@@ -395,8 +395,8 @@ void Task1code(void* parameter) {
       delay(20);
     }
 
-    while (getMessage == false) {           // this is a wait loop
-      delay(10);                            // this task does nothing until the variable getMessage becomes true
+    while (getMessage == false) {  // this is a wait loop
+      delay(10);                   // this task does nothing until the variable getMessage becomes true
       if (millis() > heartbeat + 25000
           and WiFi.isConnected()) {         // while we do nothing we send a heartbeat signal to the server
         heartbeat = millis();               // so that the web server knows you are still on line
@@ -415,7 +415,7 @@ void Task1code(void* parameter) {
     }
     
     // when the getMessage variable goes True, we drop out of the wait loop
-    getMessage = false;  // first reset the getMessage variable back to false.
+    getMessage = false;                                           // first reset the getMessage variable back to false.
     String serverName = "http://" + server + "/readMessage.php";  // set up the server and needed web page
     WiFiClient client;
     HTTPClient httpb;
@@ -432,14 +432,14 @@ void Task1code(void* parameter) {
 
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + lp + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
-Serial.println (httpRequestData);
+    Serial.println(httpRequestData);
     // Send HTTP POST request
     int httpResponseCode = httpb.POST(httpRequestData);
     Serial.println("******** *** Request Done");
-    if (httpResponseCode == 200) {                       // httpResponseCode should be 200
-      
+    if (httpResponseCode == 200) {  // httpResponseCode should be 200
+
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
-      textOutput.trim();                                 // trim the output
+      textOutput.trim();                      // trim the output
 
       if (fullpage == true) {
         msgbuffersize = textOutput.length() + 1;
@@ -448,7 +448,7 @@ Serial.println (httpRequestData);
         fullpage = false;
       }
 
-      msgbuffersize = textOutput.length() + 1;           //
+      msgbuffersize = textOutput.length() + 1;  //
       if (msgbuffersize > 498) {                // that should never happen
         msgbuffersize = 498;
 #ifdef debug
@@ -643,7 +643,7 @@ void ConnectivityCheck() {
 
   http.begin(client, serverName);                                       // Connect to configured server
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
-  // Prepare your HTTP POST request data
+                                                                        // Prepare your HTTP POST request data
   String httpRequestData = "checkcon=1";                                // Send HTTP POST request
   int httpResponseCode = http.POST(httpRequestData);                    // httpResponseCode should be "connected"
   if (httpResponseCode > 0) {                                           // get the response from the php page.
@@ -816,7 +816,7 @@ void loop() {
               urgentMessage = " System:  Unknown user:" + RecipientName;
               send_error = 1;
               break;
-          }
+            }
           } else {
             msgtype = "public";
           }
@@ -860,7 +860,7 @@ void loop() {
           }
 
           // inbuffer now contains "SSID password timeoffset"
-          char bns[inbuffersize+1];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
@@ -912,7 +912,7 @@ void loop() {
               cc = fullpagetext[i++];
               msgbuffer[0] = cc;
               p++;
-          }
+            }
             // fill buffer until we find '}'
             if (cc == '{') {
               p = 1;
@@ -941,11 +941,11 @@ void loop() {
               // copy the buffer size also
               outbuffersize = msgbuffersize;
               // and send the outbuffer
-              send_out_buffer_to_C64();     
+              send_out_buffer_to_C64();
             } else {
               i = -1;
               sendByte(128);
-              fullpage=false;
+              fullpage = false;
 #ifdef debug
               Serial.println("Json deserialize error");
 #endif
@@ -958,7 +958,7 @@ void loop() {
               if (millis() > timeOut) {
                 lastmessage = oldlastmessage;
                 ch = 1;
-                fullpage=false;
+                fullpage = false;
 #ifdef debug
                 Serial.println("Timeout in fullpage routine");
 #endif
@@ -1049,12 +1049,12 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize+1];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           server = ns;
           settings.begin("mysettings", false);
-          settings.putString("server", ns);     // store the new server name in the eeprom settings
+          settings.putString("server", ns);  // store the new server name in the eeprom settings
           settings.end();
 
           lastmessage = 1;
@@ -1071,7 +1071,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // receive the ROM version number
           receive_buffer_from_C64(1);
-          char bns[inbuffersize+1];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           romVersion = ns;
@@ -1155,7 +1155,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
           // inbuffer now contains "registrationid nickname"
-          char bns[inbuffersize+1];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
@@ -1220,7 +1220,7 @@ void loop() {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
           }
 
-          char bns[inbuffersize+1];
+          char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           configured = ns;
