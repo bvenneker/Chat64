@@ -27,6 +27,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $recipientname = $conn->real_escape_string($recipientname);
     $message = $conn->real_escape_string($message);
 
+    // delete the last char if it is not printable
+	if (ctype_print(substr($message, -1))==False){
+		$message = substr_replace($message, '', -1);
+		}
+    
     // Prepare recipient ID
     $recipientID = "";
 
