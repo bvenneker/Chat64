@@ -20,10 +20,10 @@ bool accept_serial_command = true;
 
 Preferences settings;
 
-String SwVersion = "3.61";
+String SwVersion = "3.62";
 
 bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = true;     // true for pcb version 3.7 and up
+bool invert_nmi_signal = false;     // true for pcb version 3.7 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -432,10 +432,11 @@ void Task1code(void* parameter) {
 
     // Prepare your HTTP POST request data
     String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + lp + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
+    #ifdef debug
     Serial.println(httpRequestData);
+    #endif
     // Send HTTP POST request
-    int httpResponseCode = httpb.POST(httpRequestData);
-    Serial.println("******** *** Request Done");
+    int httpResponseCode = httpb.POST(httpRequestData);    
     if (httpResponseCode == 200) {  // httpResponseCode should be 200
 
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
@@ -784,6 +785,22 @@ void loop() {
           receive_buffer_from_C64(1);
           String toEncode = "";
           String RecipientName = "";
+
+          // Get the RecipientName
+          // see if the message starts with '@'
+          byte b = inbuffer[1];
+          if (b == 0) {
+            for (int x = 2; x < 10; x++) {
+              byte b = inbuffer[x];
+              if (b != 32) {
+                if (b<127) RecipientName = (RecipientName + screenCode_to_Ascii(b));
+                else toEncode = (toEncode + "[" + int(b) + "]");
+              } else {
+                break;
+              }
+            }
+          }
+
           for (int x = 0; x < inbuffersize; x++) {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
             byte b = inbuffer[x];
@@ -794,19 +811,11 @@ void loop() {
               toEncode = (toEncode + inbuffer[x]);
             }
           }
-          // see if the message starts with '@'
-          byte b = textbuffer[1];
-          if (b == 64) {
-            for (int x = 2; x < 10; x++) {
-              byte b = textbuffer[x];
-              if (b != 32) {
-                RecipientName = (RecipientName + textbuffer[x]);
-              } else {
-                break;
-              }
-            }
+           
+          if (RecipientName !="") {
             // is this a valid username?
             String test_name = RecipientName;
+            Serial.println(" = TEST >> " +RecipientName);
             test_name.toLowerCase();
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
