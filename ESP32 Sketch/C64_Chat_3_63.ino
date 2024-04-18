@@ -1294,11 +1294,7 @@ void send_out_buffer_to_C64() {
   // send the content of the outbuffer to the C64
   for (int x = 0; x < outbuffersize - 1; x++) {
     sendByte(Ascii_to_screenCode(outbuffer[x]));
-    Serial.print((int)outbuffer[x]);
-    Serial.print(outbuffer[x]);
-    Serial.print(" ");
-  }
-  Serial.println();
+  }  
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
