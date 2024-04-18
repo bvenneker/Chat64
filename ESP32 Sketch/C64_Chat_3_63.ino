@@ -487,30 +487,9 @@ bool SendMessageToServer(String Encoded, String RecipientName, bool heartbeat) {
   int httpResponseCode = http.POST(httpRequestData);
 
   // httpResponseCode should be 200
-  if (httpResponseCode > 0) {
-    String ret = http.getString();
-    ret.trim();
-#ifdef debug
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
-    Serial.print("Return code from php page: ");
-    Serial.print(ret);
-#endif
-    if (ret == "0") {
-      // no error on database level
-      result = true;
-#ifdef debug
-      Serial.println(" = no error.");
-#endif
-    } else {
-      // some error on database level or php
-      result = false;
-
-#ifdef debug
-      Serial.println(" = some error!!!");
-#endif
-    }
-  }
+  if (httpResponseCode == 200) {
+    result=true;
+  } 
   // Free resources
   http.end();
   return result;
@@ -704,12 +683,13 @@ void loop() {
           bool found=false;
             // find first {
             while (cc != '{' and p < 10) {
-              cc = multiMessageBufferPub[pos0++];                           
+              cc = multiMessageBufferPub[pos0++];
+                          
               p++;
             }
             // fill buffer until we find '}'
             if (cc == '{') {
-              msgbuffer[0] = cc; 
+              msgbuffer[0] = cc;
               found = true;
               getMessage=false;
               p = 1;
@@ -1314,8 +1294,11 @@ void send_out_buffer_to_C64() {
   // send the content of the outbuffer to the C64
   for (int x = 0; x < outbuffersize - 1; x++) {
     sendByte(Ascii_to_screenCode(outbuffer[x]));
+    Serial.print((int)outbuffer[x]);
+    Serial.print(outbuffer[x]);
+    Serial.print(" ");
   }
-
+  Serial.println();
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
