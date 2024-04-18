@@ -704,12 +704,12 @@ void loop() {
           bool found=false;
             // find first {
             while (cc != '{' and p < 10) {
-              cc = multiMessageBufferPub[pos0++];
-              msgbuffer[0] = cc;              
+              cc = multiMessageBufferPub[pos0++];                           
               p++;
             }
             // fill buffer until we find '}'
             if (cc == '{') {
+              msgbuffer[0] = cc; 
               found = true;
               getMessage=false;
               p = 1;
@@ -827,7 +827,7 @@ void loop() {
           }
           // if it still fails after a few retries, give us an error.
           if (!sc) {
-            urgentMessage = " System:        ERROR sending the message";
+            urgentMessage = "  System:     ERROR sending the message";
             send_error = 1;
           } else {
             // No error, read the message back from the database to show it on screen
@@ -920,12 +920,12 @@ void loop() {
           bool found=false;
             // find first {
             while (cc != '{' and p < 10) {
-              cc = multiMessageBufferPriv[pos1++];
-              msgbuffer[0] = cc;              
+              cc = multiMessageBufferPriv[pos1++];                           
               p++;
             }
             // fill buffer until we find '}'
             if (cc == '{') {
+              msgbuffer[0] = cc; 
               found = true;
               getMessage=false;
               p = 1;
@@ -945,14 +945,6 @@ void loop() {
             }
 
           Deserialize();
-
-          if (tempMessageID < lastprivmsg){
-            Serial.println("*** ERROR");
-            Serial.print("tempMessageID = ");
-            Serial.println(tempMessageID);
-            Serial.print("lastprivmsg = ");
-            Serial.println(lastprivmsg);          
-          }
 
           if (haveMessage == 2 or haveMessage == 3) {
             // copy the msgbuffer to the outbuffer
@@ -1323,6 +1315,7 @@ void send_out_buffer_to_C64() {
   for (int x = 0; x < outbuffersize - 1; x++) {
     sendByte(Ascii_to_screenCode(outbuffer[x]));
   }
+
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
