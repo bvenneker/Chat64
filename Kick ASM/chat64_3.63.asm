@@ -234,11 +234,11 @@ warmstart:                                        //
     bne !loop-                                    // continue to loop while x < message length
                                                   // 
 !send:                                            // 
-lda COLOR                                         //                                        
-and #15                                           //                                       
-tax                                               //
-lda petsciColors,x                                //                                
-sta CURSORCOLOR                                   //                                    
+    lda COLOR                                     // Convert the last used color into a petsci color code                                        
+    and #15                                       // that color could be a high number, reduce it to a 4 bit number so we get 0-15                                      
+    tax                                           // transfer that number to x
+    lda petsciColors,x                            // use a lookup table to find the petscii code                               
+    sta CURSORCOLOR                               // Store that in variable CURSORCOLOR                                   
     lda #128                                      // load byte 128 in the accumulator
     sta TXBUFFER,y                                // and put it in the buffer as an end marker
                                                   // 
@@ -2257,7 +2257,7 @@ text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byt
 text_version:                 .byte 151; .text "Version";.byte 128
 version:                      .byte 151; .text "3.63"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP"; .byte 128
-version_date:                 .byte 151; .text "03/2024";.byte 128
+version_date:                 .byte 151; .text "04/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
@@ -2352,7 +2352,7 @@ shiftError:                   .byte 143,146; .text"system: Error: shift error";.
 //=========================================================================================================
 // VARIABLE BUFFERS
 //=========================================================================================================
-.segment Variables [start=$3000, max=$4fff, virtual]
+.segment Variables [start=$6000, max=$7fff, virtual]
 //* = $3000 "Variables"  virtual                    // .segment Variables [start= $3000, align=$100, virtual]
 INVERT:                       .byte 0             
 CMD:                          .byte 0             
