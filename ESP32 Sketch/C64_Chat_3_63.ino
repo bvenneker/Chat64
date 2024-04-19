@@ -23,7 +23,7 @@ Preferences settings;
 String SwVersion = "3.63";
 
 bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = false;    // true for pcb version 3.7 and up
+bool invert_nmi_signal = true;    // true for pcb version 3.7 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -68,7 +68,6 @@ char outbuffer[250];  // a character buffer for outgoing data
 int outbuffersize = 0;
 char msgbuffer[500];  // a character buffer for a chat message
 volatile int msgbuffersize = 0;
-char textbuffer[10];  // a small buffer to capture the start of a message
 char textsize = 0;
 volatile int haveMessage = 0;
 int it = 0;
@@ -744,33 +743,42 @@ void loop() {
           // we expect a chat message from the C64
           receive_buffer_from_C64(1);
           String toEncode = "";
-          String RecipientName = "";
-
+          String RecipientName = "";          
+          int mstart=0;
+          String colorCode="[145]";
           // Get the RecipientName
           // see if the message starts with '@'
           byte b = inbuffer[1];
-          if (b == 0) {
-            for (int x = 2; x < 10; x++) {
+          if (b == 0) {     
+            toEncode = "[" + String(int(inbuffer[0])) + "]";
+            for (int x = 2; x < 15; x++) {
               byte b = inbuffer[x];
               if (b != 32) {
-                if (b < 127) RecipientName = (RecipientName + screenCode_to_Ascii(b));
-                else toEncode = (toEncode + "[" + int(b) + "]");
+                if (b < 127) {
+                  RecipientName = (RecipientName + screenCode_to_Ascii(b));                
+                  Serial.print(screenCode_to_Ascii(b));
+                } else {
+                  colorCode = "[" + String(int(b)) + "]";
+                  Serial.print(colorCode);
+                }
               } else {
+                mstart=x+1;
+                toEncode = toEncode + "@" + RecipientName+" " +colorCode;
                 break;
               }
-            }
+            }          
           }
 
-          for (int x = 0; x < inbuffersize; x++) {
+          for (int x = mstart; x < inbuffersize; x++) {
             inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
             byte b = inbuffer[x];
             if (b > 128) {
               toEncode = (toEncode + "[" + int(inbuffer[x]) + "]");
-            } else {
-              textbuffer[x] = inbuffer[x];
+            } else {              
               toEncode = (toEncode + inbuffer[x]);
             }
           }
+          Serial.println("toEncode = " + toEncode);
 
           if (RecipientName != "") {
             // is this a valid username?
@@ -779,6 +787,7 @@ void loop() {
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
               msgtype = "private";
+              pmSender = '@' + RecipientName;
             } else {
               // user does not exist
               urgentMessage = " System:  Unknown user:" + RecipientName;
@@ -1533,8 +1542,7 @@ void Deserialize(){
     bool newid = false;
     if ((msgtype == "private") and (newMessageId != lastprivmsg)) {
       newid = true;
-      String nickname = doc["nickname"];
-      if (nickname != myNickName) { pmSender = '@' + nickname; }
+      String nickname = doc["nickname"];      
     }
     if ((msgtype == "public") and (newMessageId != lastmessage)) {
       newid = true;
