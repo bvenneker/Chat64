@@ -20,10 +20,10 @@ bool accept_serial_command = true;
 
 Preferences settings;
 
-String SwVersion = "3.63";
+String SwVersion = "3.64";
 
 bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = true;    // true for pcb version 3.7 and up
+bool invert_nmi_signal = true;     // true for pcb version 3.7 and up
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -48,14 +48,12 @@ String pmSender = "";  // name of the personal message sender
 String ssid = "empty";      // do not change this!
 String password = "empty";  // do not change this!
 String timeoffset = "empty";
-String server = "empty";                 // do not change this!
-String configured = "empty";             // do not change this!
-volatile unsigned long lastmessage = 0;  // do not change this!
-volatile unsigned long lastprivmsg = 0;  // do not change this!
-volatile unsigned long tempMessageID = 0;
+String server = "empty";      // do not change this!
+String configured = "empty";  // do not change this!
+volatile unsigned long messageIds[] = { 0, 0 };
+volatile unsigned long tempMessageIds[] = { 0, 0 };
 String msgtype = "public";  // do not change this!
 String users = "";          // a list of all users on this server.
-String tempMessageTp = "";
 String urgentMessage = "";
 volatile bool wificonnected = false;
 char regStatus = 'u';
@@ -85,7 +83,7 @@ char multiMessageBufferPriv[3500];
 
 byte send_error = 0;
 int userpageCount = 0;
- 
+
 
 // ********************************
 // **        OUTPUTS             **
@@ -390,7 +388,7 @@ void Task1code(void* parameter) {
     while (!WiFi.isConnected()) {
       delay(20);
     }
- 
+
     while (getMessage == false) {  // this is a wait loop
                                    // this task does nothing until the variable getMessage becomes true
       delay(10);
@@ -400,7 +398,7 @@ void Task1code(void* parameter) {
         SendMessageToServer("", "", true);  // heartbeat repeats every 25 seconds
         refreshUserPages = true;            // and refresh the user pages (who is online)
       }
-      if (updateUserlist and getMessage == false) {        
+      if (updateUserlist and getMessage == false) {
         updateUserlist = false;
         fill_userlist();
       }
@@ -408,55 +406,52 @@ void Task1code(void* parameter) {
         refreshUserPages = false;
         get_full_userlist();
       }
-
     }
 
     // when the getMessage variable goes True, we drop out of the wait loop
-    getMessage = false;                                            // first reset the getMessage variable back to false.
+    getMessage = false;                                               // first reset the getMessage variable back to false.
     String serverName = "http://" + server + "/readAllMessages.php";  // set up the server and needed web page
     WiFiClient client;
     HTTPClient httpb;
-     
+
     httpb.setReuse(true);
-    httpb.begin(client, serverName);                                       // start the http connection
+    httpb.begin(client, serverName);  // start the http connection
     //httpb.setTimeout(1000);
     httpb.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
-    
+
     // Prepare your HTTP POST request data
-    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + lastmessage + "&lastprivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
- 
+    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
+
 #ifdef debug
     Serial.println(httpRequestData);
-    unsigned long responseTime=millis();
+    unsigned long responseTime = millis();
 #endif
-    // Send HTTP POST request    
-    int httpResponseCode = httpb.POST(httpRequestData);   
+    // Send HTTP POST request
+    int httpResponseCode = httpb.POST(httpRequestData);
 #ifdef debug
-    responseTime=millis() - responseTime;
+    responseTime = millis() - responseTime;
     Serial.print("http POST took: ");
     Serial.print(responseTime);
     Serial.println(" ms.");
-#endif 
+#endif
     if (httpResponseCode == 200) {  // httpResponseCode should be 200
 
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
       textOutput.trim();                      // trim the output
 
       msgbuffersize = textOutput.length() + 1;
-      if (msgtype=="private"){
-        textOutput.toCharArray(multiMessageBufferPriv, msgbuffersize);   
+      if (msgtype == "private") {
+        textOutput.toCharArray(multiMessageBufferPriv, msgbuffersize);
       }
-      if (msgtype=="public"){
-        textOutput.toCharArray(multiMessageBufferPub, msgbuffersize);   
+      if (msgtype == "public") {
+        textOutput.toCharArray(multiMessageBufferPub, msgbuffersize);
       }
 
       textOutput = "";
-      
     }
 
     // Free resources
     httpb.end();
-
   }
 }
 
@@ -487,8 +482,8 @@ bool SendMessageToServer(String Encoded, String RecipientName, bool heartbeat) {
 
   // httpResponseCode should be 200
   if (httpResponseCode == 200) {
-    result=true;
-  } 
+    result = true;
+  }
   // Free resources
   http.end();
   return result;
@@ -601,8 +596,8 @@ void ConnectivityCheck() {
 // Main loop
 // ******************************************************************************
 unsigned long ledtimer = 0;
-int pos1=0;
-int pos0=0;
+int pos1 = 0;
+int pos0 = 0;
 void loop() {
 
   digitalWrite(CLED, WiFi.isConnected());
@@ -672,42 +667,45 @@ void loop() {
         {
           // ------------------------------------------------------------------------------
           // start byte 254 = C64 triggers call to the website for new public message
-          // ------------------------------------------------------------------------------          
-          msgtype = "public";           
-           
+          // ------------------------------------------------------------------------------
+          msgtype = "public";
+
           // do we have any messages in the page buffer?
-          // find the first '{' in the page buffer       
+          // find the first '{' in the page buffer
           int p = 0;
           char cc = 0;
-          bool found=false;
-            // find first {
-            while (cc != '{' and p < 10) {
-              cc = multiMessageBufferPub[pos0++];
-                          
-              p++;
-            }
-            // fill buffer until we find '}'
-            if (cc == '{') {
-              msgbuffer[0] = cc;
-              found = true;
-              getMessage=false;
-              p = 1;
-              while (cc != '}') {
-                cc = multiMessageBufferPub[pos0++];
-                // put this line into the msgbuffer buffer
-                if (cc != 10) msgbuffer[p++] = cc;
-              }
-            } 
-            if (!found) {                            
-              // clear the buffer
-              for (int y=0;y<3500;y++){
-                multiMessageBufferPub[y]=0;
-              }
-              pos0=0;           
-              getMessage=true;   
-            }
+          bool found = false;
+          // find first {
+          while (cc != '{' and p < 10) {
+            cc = multiMessageBufferPub[pos0++];
 
-          Deserialize();
+            p++;
+          }
+          // fill buffer until we find '}'
+          if (cc == '{') {
+            msgbuffer[0] = cc;
+            found = true;
+            getMessage = false;
+            p = 1;
+            while (cc != '}') {
+              cc = multiMessageBufferPub[pos0++];
+              // put this line into the msgbuffer buffer
+              if (cc != 10) msgbuffer[p++] = cc;
+            }
+          }
+          if (found) {
+            found = false;
+            Deserialize();
+          } else {
+            // clear the buffer
+            for (int y = 0; y < 3500; y++) {
+              multiMessageBufferPub[y] = 0;
+            }
+            pos0 = 0;
+            getMessage = true;
+          }
+
+
 
           if (haveMessage == 1 or haveMessage == 3) {
             // copy the msgbuffer to the outbuffer
@@ -717,12 +715,12 @@ void loop() {
             outbuffersize = msgbuffersize;
 
             // and send the outbuffer
-            send_out_buffer_to_C64();   
+            send_out_buffer_to_C64();
             if (haveMessage == 1) {
               // store the new message id
-              lastmessage = tempMessageID;
-            }         
-                      
+              messageIds[0] = tempMessageIds[0];
+            }
+
             haveMessage = 0;
           } else {  // no public messages :-(
             sendByte(128);
@@ -730,7 +728,7 @@ void loop() {
 
           // if the user list is empty, get the list
           // also refresh the userlist when we switch from public to private messaging and vice versa
-          if (users.length() < 1 or msgtype != "public") updateUserlist = true;          
+          if (users.length() < 1 or msgtype != "public") updateUserlist = true;
           break;
         }
 
@@ -743,30 +741,30 @@ void loop() {
           // we expect a chat message from the C64
           receive_buffer_from_C64(1);
           String toEncode = "";
-          String RecipientName = "";          
-          int mstart=0;
-          String colorCode="[145]";
+          String RecipientName = "";
+          int mstart = 0;
+          String colorCode = "[145]";
           // Get the RecipientName
           // see if the message starts with '@'
           byte b = inbuffer[1];
-          if (b == 0) {     
+          if (b == 0) {
             toEncode = "[" + String(int(inbuffer[0])) + "]";
             for (int x = 2; x < 15; x++) {
               byte b = inbuffer[x];
               if (b != 32) {
                 if (b < 127) {
-                  RecipientName = (RecipientName + screenCode_to_Ascii(b));                
+                  RecipientName = (RecipientName + screenCode_to_Ascii(b));
                   Serial.print(screenCode_to_Ascii(b));
                 } else {
                   colorCode = "[" + String(int(b)) + "]";
                   Serial.print(colorCode);
                 }
               } else {
-                mstart=x+1;
-                toEncode = toEncode + "@" + RecipientName+" " +colorCode;
+                mstart = x + 1;
+                toEncode = toEncode + "@" + RecipientName + " " + colorCode;
                 break;
               }
-            }          
+            }
           }
 
           for (int x = mstart; x < inbuffersize; x++) {
@@ -774,7 +772,7 @@ void loop() {
             byte b = inbuffer[x];
             if (b > 128) {
               toEncode = (toEncode + "[" + int(inbuffer[x]) + "]");
-            } else {              
+            } else {
               toEncode = (toEncode + inbuffer[x]);
             }
           }
@@ -782,7 +780,7 @@ void loop() {
 
           if (RecipientName != "") {
             // is this a valid username?
-            String test_name = RecipientName;            
+            String test_name = RecipientName;
             test_name.toLowerCase();
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
@@ -841,10 +839,10 @@ void loop() {
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
-          ssid = getValue(ns, 32, 0);          
-          password = getValue(ns, 32, 1);          
+          ssid = getValue(ns, 32, 0);
+          password = getValue(ns, 32, 1);
           timeoffset = getValue(ns, 32, 2);
-          
+
           settings.begin("mysettings", false);
           settings.putString("ssid", ssid);
           settings.putString("password", password);
@@ -862,7 +860,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           send_String_to_c64(ssid + " " + password + " " + timeoffset);
           break;
-        }    
+        }
 
       case 249:
         {
@@ -898,42 +896,43 @@ void loop() {
         {
           // ------------------------------------------------------------------------------
           // start byte 247 = C64 triggers call to the website for new private message
-          // ------------------------------------------------------------------------------          
+          // ------------------------------------------------------------------------------
           msgtype = "private";
           pmCount = 0;
-           
+
           // do we have any messages in the page buffer?
-          // find the first '{' in the page buffer       
+          // find the first '{' in the page buffer
           int p = 0;
           char cc = 0;
-          bool found=false;
-            // find first {
-            while (cc != '{' and p < 10) {
-              cc = multiMessageBufferPriv[pos1++];                           
-              p++;
+          bool found = false;
+          // find first {
+          while (cc != '{' and p < 10) {
+            cc = multiMessageBufferPriv[pos1++];
+            p++;
+          }
+          // fill buffer until we find '}'
+          if (cc == '{') {
+            msgbuffer[0] = cc;
+            found = true;
+            getMessage = false;
+            p = 1;
+            while (cc != '}') {
+              cc = multiMessageBufferPriv[pos1++];
+              // put this line into the msgbuffer buffer
+              if (cc != 10) msgbuffer[p++] = cc;
             }
-            // fill buffer until we find '}'
-            if (cc == '{') {
-              msgbuffer[0] = cc; 
-              found = true;
-              getMessage=false;
-              p = 1;
-              while (cc != '}') {
-                cc = multiMessageBufferPriv[pos1++];
-                // put this line into the msgbuffer buffer
-                if (cc != 10) msgbuffer[p++] = cc;
-              }
-            } 
-            if (!found) {                            
-              // clear the buffer
-              for (int y=0;y<3500;y++){
-                multiMessageBufferPriv[y]=0;
-              }
-              pos1=0;
-              getMessage=true;   
+          }
+          if (found) {
+            found = false;
+            Deserialize();
+          } else {
+            // clear the buffer
+            for (int y = 0; y < 3500; y++) {
+              multiMessageBufferPriv[y] = 0;
             }
-
-          Deserialize();
+            pos1 = 0;
+            getMessage = true;
+          }
 
           if (haveMessage == 2 or haveMessage == 3) {
             // copy the msgbuffer to the outbuffer
@@ -946,7 +945,7 @@ void loop() {
             send_out_buffer_to_C64();
             if (haveMessage == 2) {
               // store the new message id
-              lastprivmsg = tempMessageID;
+              messageIds[1] = tempMessageIds[1];
             }
             haveMessage = 0;
           } else {  // no private messages :-(
@@ -955,7 +954,7 @@ void loop() {
 
           // if the user list is empty, get the list
           // also refresh the userlist when we switch from public to private messaging and vice versa
-           if (users.length() < 1 or msgtype != "private") updateUserlist = true;          
+          if (users.length() < 1 or msgtype != "private") updateUserlist = true;
           break;
         }
 
@@ -978,8 +977,8 @@ void loop() {
           settings.putString("server", ns);  // store the new server name in the eeprom settings
           settings.end();
 
-          lastmessage = 1;
-          lastprivmsg = 1;
+          messageIds[0] = 0;
+          messageIds[1] = 0;
 
           // we should also refresh the userlist
           users = "";
@@ -1053,13 +1052,13 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 241 = C64 asks for the number of unread private messages
           // ------------------------------------------------------------------------------
-          if (pmCount > 10) pmCount=10;            
+          if (pmCount > 10) pmCount = 10;
           String pm = String(pmCount);
           if (pmCount < 10) { pm = "0" + pm; }
           pm = "[pm:" + pm + " (F5)]";
           if (pmCount == 0) pm = "~~~~~~~~~~~~";
           sendByte(156);           // send color code for gray
-          send_String_to_c64(pm);  // then send the number of messages as a string          
+          send_String_to_c64(pm);  // then send the number of messages as a string
           break;
         }
       case 240:
@@ -1076,7 +1075,7 @@ void loop() {
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
           regID = getValue(ns, 32, 0);
-          
+
           if (regID.length() != 16) {
 #ifdef debug
             Serial.println(regID);
@@ -1084,7 +1083,7 @@ void loop() {
 #endif
             break;
           }
-          myNickName = getValue(ns, 32, 1);          
+          myNickName = getValue(ns, 32, 1);
           settings.begin("mysettings", false);
           settings.putString("regID", regID);
           settings.putString("myNickName", myNickName);
@@ -1303,7 +1302,7 @@ void send_out_buffer_to_C64() {
   // send the content of the outbuffer to the C64
   for (int x = 0; x < outbuffersize - 1; x++) {
     sendByte(Ascii_to_screenCode(outbuffer[x]));
-  }  
+  }
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
@@ -1530,26 +1529,28 @@ String getValue(String data, char separator, int index) {
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-void Deserialize(){
+void Deserialize() {
 
   DynamicJsonDocument doc(512);                                  // next we want to analyse the json data
-  DeserializationError error = deserializeJson(doc, msgbuffer);  // deserialize the json document  
+  DeserializationError error = deserializeJson(doc, msgbuffer);  // deserialize the json document
 
   if (!error) {
     unsigned long newMessageId = doc["rowid"];
     // if we get a new message id back from the database, that means we have a new message
     // if the database returns the same message id, there is no new message for us..
     bool newid = false;
-    if ((msgtype == "private") and (newMessageId != lastprivmsg)) {
+    String channel = doc["channel"];    
+    if ((channel == "private") and (newMessageId != messageIds[1])) {
       newid = true;
-      String nickname = doc["nickname"];      
+      tempMessageIds[1] = newMessageId;
+      String nickname = doc["nickname"];
     }
-    if ((msgtype == "public") and (newMessageId != lastmessage)) {
+
+    if ((channel == "public") and (newMessageId != messageIds[0])) {
       newid = true;
+      tempMessageIds[0] = newMessageId;
     }
     if (newid) {
-      tempMessageID = newMessageId;      
-      tempMessageTp = msgtype;
       String message = doc["message"];
       String decoded_message = ' ' + my_base64_decode(message);
       int lines = doc["lines"];
@@ -1559,15 +1560,15 @@ void Deserialize(){
       msgbuffersize = (int)outputLength;
       msgbuffer[0] = lines;
       msgbuffersize += 1;
-      
-      pmCount = doc["pm"];    
+
+      pmCount = doc["pm"];
       haveMessage = 1;
       if (msgtype == "private") haveMessage = 2;
-        
+
     } else {
-      
-      pmCount = doc["pm"];    
-      
+
+      pmCount = doc["pm"];
+
       // we got the same message id back, so no new messages:
       msgbuffersize = 0;
       haveMessage = 0;
