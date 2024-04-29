@@ -68,7 +68,6 @@ char outbuffer[250];  // a character buffer for outgoing data
 int outbuffersize = 0;
 char msgbuffer[500];  // a character buffer for a chat message
 volatile int msgbuffersize = 0;
-char textbuffer[10];  // a small buffer to capture the start of a message
 char textsize = 0;
 volatile int haveMessage = 0;
 int it = 0;
@@ -794,7 +793,6 @@ void loop() {
               byte b = inbuffer[x];
               if (b != 32) {
                 if (b<127) RecipientName = (RecipientName + screenCode_to_Ascii(b));
-                else toEncode = (toEncode + "[" + int(b) + "]");
               } else {
                 break;
               }
@@ -807,7 +805,6 @@ void loop() {
             if (b > 128) {
               toEncode = (toEncode + "[" + int(inbuffer[x]) + "]");
             } else {
-              textbuffer[x] = inbuffer[x];
               toEncode = (toEncode + inbuffer[x]);
             }
           }
