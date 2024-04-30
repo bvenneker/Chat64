@@ -1415,7 +1415,7 @@ void triggerNMI() {
   // toggle NMI
   uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
   digitalWrite(oC64NMI, new_state);
-  delayMicroseconds(125);  // minimal 100 microseconds delay
+  delayMicroseconds(200);  // minimal 100 microseconds delay
   // And toggle back
   digitalWrite(oC64NMI, !new_state);
 
