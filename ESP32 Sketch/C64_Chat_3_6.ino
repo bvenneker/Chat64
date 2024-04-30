@@ -20,10 +20,10 @@ bool accept_serial_command = true;
 
 Preferences settings;
 
-String SwVersion = "3.62";
+String SwVersion = "3.63";
 
 bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = false;     // true for pcb version 3.7 and up
+bool invert_nmi_signal = false;     // true for pcb version 3.7. false for 3.8
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -468,7 +468,6 @@ void Task1code(void* parameter) {
         if ((msgtype == "private") and (newMessageId != lastprivmsg)) {
           newid = true;
           String nickname = doc["nickname"];
-          if (nickname != myNickName) { pmSender = '@' + nickname; }
         }
 
         if (msgtype == "public") {
@@ -820,6 +819,7 @@ void loop() {
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
               msgtype = "private";
+              pmSender = '@' + RecipientName;
             } else {
               // user does not exist
               urgentMessage = " System:  Unknown user:" + RecipientName;
