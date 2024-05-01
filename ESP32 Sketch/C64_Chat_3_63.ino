@@ -18,7 +18,7 @@ bool accept_serial_command = true;
 Preferences settings;
 
 bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = false;     // true for pcb version 3.7, false for rev 3.8
+bool invert_nmi_signal = true;     // true for pcb version 3.7, false for rev 3.8
 
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
@@ -233,6 +233,9 @@ void setup() {
 
   // get the nick name from the eeprom
   myNickName = settings.getString("myNickName", "empty");
+
+  // get the last known message id (only the private is stored in eeprom)
+  lastprivmsg = settings.getULong("lastprivmsg", 1)  ;
 
   // get Chatserver ip/fqdn from eeprom
   server = settings.getString("server", "www.chat64.nl");
@@ -693,6 +696,12 @@ void loop() {
             if (haveMessage == 2) {
               // store the new message id
               messageIds[1] = tempMessageIds[1];
+              lastprivmsg = tempMessageIds[1];
+              settings.begin("mysettings", false);
+              settings.putULong("lastprivmsg", lastprivmsg);
+              settings.end(); 
+              
+
             }
             haveMessage = 0;
           } else {  // no private messages :-(
