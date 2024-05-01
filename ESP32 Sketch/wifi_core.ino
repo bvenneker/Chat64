@@ -22,6 +22,7 @@ String timeoffset = "empty";
 String server = "empty";                 // do not change this!
 volatile unsigned long messageIds[] = { 0, 0 };
 volatile unsigned long tempMessageIds[] = { 0, 0 };
+volatile unsigned long lastprivmsg = 0;
 String msgtype = "public";  // do not change this!
 String users = "";          // a list of all users on this server.
 volatile bool updateUserlist = false;
@@ -300,7 +301,7 @@ void WifiCoreLoop(void* parameter) {
     httpb.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
 
     // Prepare your HTTP POST request data
-    String httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
+    String httpRequestData = "regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] +"&previousPrivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
 #ifdef debug
     Serial.println(httpRequestData);
     unsigned long responseTime = millis();
