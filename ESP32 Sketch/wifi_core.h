@@ -19,9 +19,7 @@ extern String ssid;       // do not change this!
 extern String password;  // do not change this!
 extern String timeoffset;
 extern String server;                 // do not change this!
-extern volatile unsigned long lastmessage;  // do not change this!
 extern volatile unsigned long lastprivmsg;  // do not change this!
-extern volatile unsigned long tempMessageID;
 extern String msgtype;  // do not change this!
 extern String users;          // a list of all users on this server.
 extern volatile bool updateUserlist;
