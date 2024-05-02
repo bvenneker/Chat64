@@ -294,19 +294,12 @@ void setup() {
   
 #endif
 
-  // try to connect to wifi for 7 seconds
+  // start wifi 
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
-  
+
+  // load the prg file
   loadPrgfile();
-  
-  for (int d = 0; d < 70; d++) {
-    if (isWifiCoreConnected) {
-      digitalWrite(CLED, HIGH);
-      wificonnected = true;
-      break;
-    } else delay(100);
-  }
 
   commandMessage.command = GetWiFiLocalIpCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
@@ -757,6 +750,8 @@ void loop() {
           String ns = bns;
           romVersion = ns;
           sendByte(128);
+          pastMatrix=true;
+          getMessage=true;
 #ifdef debug
           Serial.print("ROM Version=");
           Serial.println(romVersion);
@@ -1198,6 +1193,7 @@ void loadPrgfile() {
   for (int x = 2; x < sizeof(prgfile); x++) {
     sendByte(prgfile[x]);
   }
+  sendByte(0);
   sendByte(0);
   Serial.println("------ PRG FILE DONE ------");
 }
