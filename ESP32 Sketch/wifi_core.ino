@@ -30,6 +30,7 @@ char msgbuffer[500];  // a character buffer for a chat message
 volatile int msgbuffersize = 0;
 volatile int haveMessage = 0;
 volatile bool getMessage = false;
+volatile bool pastMatrix = false;
 String userPages[6];
 String romVersion = "0.0";
 
@@ -277,18 +278,19 @@ void WifiCoreLoop(void* parameter) {
         SendMessageToServer("", "", true);  // heartbeat repeats every 25 seconds
         refreshUserPages = true;            // and refresh the user pages (who is online)
       }
-      if (millis() > last_up_refresh + 30000) {
+      if (millis() > last_up_refresh + 30000 and pastMatrix) {
         refreshUserPages = true;
       }
-      if (updateUserlist and !getMessage) {
+      if (updateUserlist and !getMessage and pastMatrix) {
         updateUserlist = false;
         fill_userlist();
       }
-      if (refreshUserPages and !getMessage) {
+      if (refreshUserPages and !getMessage and pastMatrix) {
         refreshUserPages = false;
         get_full_userlist();
         last_up_refresh = millis();
       }
+      continue;
     }
     
     // when the getMessage variable goes True, we drop out of the wait loop
