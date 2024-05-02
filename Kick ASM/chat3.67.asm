@@ -21,8 +21,6 @@ main_init:                                        //
     jsr $E544                                     // Clear screen
     lda #5 ; sta $9c                              // default line color (green)
     ldx #24                                       // zero SID sound register (1)
-    lda #254                                      //    
-    sta GETMSGCMD                                 //    
     lda #0                                        // 
     sta $d020                                     // Set black screen
     sta $d021                                     // Set black border
@@ -43,18 +41,23 @@ main_init:                                        //
     sta HAVE_P_BACKUP                             // 
     sta HAVE_ML_BACKUP                            // 
     lda #80                                       // Set the check interval. 50 will result in once a second.
-    sta CHECKINTERVAL                             // 
+    sta CHECKINTERVAL                             //         
+    jsr !are_we_in_the_matrix+                    // check if we are running inside a simulator (esp32 is disconnected)
     jsr !start_screen+                            // Call the start screen sub routine first
+    
     jsr $E544                                     // Clear screen after start screen
                                                   //
     lda #23                                       // Load 23 into accumulator and use it to
     sta $D018                                     // Switch to LOWER CASE
-    jsr !are_we_in_the_matrix+                    // check if we are running inside a simulator (esp32 is disconnected)
-    jsr !callstatus+                              // Check the configuration status
+
     lda CONFIG_STATUS                             // 
     cmp #4                                        // Are we fully configured?
     bne !mainmenu+                                // No, jump to main menu first
-    jmp !main_chat_screen+                        // 
+    lda VICEMODE
+    cmp #1
+    bne !+
+    jsr !sounderror+                              // error sound because cartridge was not found!
+!:  jmp !main_chat_screen+                        // 
                                                   // 
 !mainmenu:                                        // 
     jmp !mainmenu+                                // 
@@ -90,8 +93,8 @@ main_init:                                        //
                                                   // 
     beq !exit+                                    // if vice mode, we do not try to communicate with the
     lda #1                                        // cartridge because it will result in error
-    sta VICEMODE                                  // 
-    jsr !sounderror+                              // 
+    sta VICEMODE                                  //  
+    
 !exit:                                            // 
     lda #100                                      // Delay 100... hamsters
     sta DELAY                                     // Store 100 in the DELAY variable
@@ -125,7 +128,7 @@ main_init:                                        //
                                                   // 
     lda VICEMODE                                  // 
     cmp #1                                        // 
-    bne !+                                        // 
+    bne !+                                        //     
     displayText(text_error_vice_mode,3,8)         // 
                                                   // 
 !:                                                //
@@ -1418,9 +1421,9 @@ jsr !start_menu_screen-                           //
 // SUB ROUTINE, Get Result from sending the message
 //=========================================================================================================
 !getResult:                                       //
-    lda #249                                      // Load number #248 (ask for WiFi status)
+    lda #249                                      // Load number #249 (ask send result)
     sta CMD                                       // Store that in CMD variable
-    jsr !send_start_byte_ff+                      // Call the sub routine to send 248 to the esp32    
+    jsr !send_start_byte_ff+                      // Call the sub routine to send 249 to the esp32    
     lda RXBUFFER                                  // 
     sta SEND_ERROR                                //
     rts                                           //
@@ -1865,7 +1868,7 @@ rts                                               //
     lda #>(stars2)                                // store the high byte of the stars2 array in zero page
     sta $ff                                       // memory location $ff
     jsr !color_stars+                             // jump to the color_stars sub routine to do the work
-                                                  // 
+    jsr !callstatus-                              // Check the configuration status                                              // 
 //=========================================================================================================
 //  SUB ROUTINE TO ANIMATE THE STARS
 //=========================================================================================================
@@ -2245,8 +2248,8 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.63"; .byte 128
-versionmask:                  .byte 151; .text "ROM x.xx ESP"; .byte 128
+version:                      .byte 151; .text "3.64"; .byte 128
+versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
 version_date:                 .byte 151; .text "04/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
@@ -2361,7 +2364,6 @@ SEND_ERROR:                   .byte 0             //
 DO_RESTORE_MESSAGE_LINES:     .byte 0             //
 PMUSER:                       .fill 12,32         //
 CURSORCOLOR:                  .byte 0             //
-GETMSGCMD:                    .byte 254           //
 SPLITBUFFER:                  .fill 40,32         //
 SERVERNAME:                   .fill 40,32         //
 SWVERSION:                    .fill 10,32         //
