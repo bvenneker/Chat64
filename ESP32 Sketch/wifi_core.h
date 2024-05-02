@@ -36,7 +36,7 @@ extern volatile unsigned long tempMessageIds[];
 extern MessageBufferHandle_t commandBuffer;
 extern MessageBufferHandle_t responseBuffer;
 extern bool isWifiCoreConnected;
-
+extern volatile bool pastMatrix;
 
 // list of wifi commands from app core to wifi core
 
