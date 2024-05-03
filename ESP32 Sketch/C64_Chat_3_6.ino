@@ -32,7 +32,7 @@ bool invert_nmi_signal = true;     // true for pcb version 3.7, false for rev 3.
 // ********************************
 // **     Global Variables       **
 // ********************************
-String configured = "empty";             // do not change this!
+String configured = "empty";  // do not change this!
 
 String urgentMessage = "";
 volatile bool wificonnected = false;
@@ -118,7 +118,7 @@ void IRAM_ATTR isr_io2() {
 // Interrupt routine, to restart the esp32
 // *************************************************
 void IRAM_ATTR isr_reset() {
-   reboot();
+  reboot();
 }
 
 void reboot() {
@@ -131,23 +131,17 @@ void reboot() {
 
 #ifdef VICE_MODE
 void receive_serial_command() {
-  static bool receiving_command = false; 
+  static bool receiving_command = false;
   while (Serial2.available() > 0) {
     byte buf = Serial2.read();
-    if (!receiving_command && buf == '$')
-    {
+    if (!receiving_command && buf == '$') {
       receiving_command = true;
-    }
-    else
-    {
-      if (buf == 'I')
-      {
+    } else {
+      if (buf == 'I') {
         ch = Serial2.parseInt();
         internalLEDstatus = true;
         dataFromC64 = true;
-      }
-      else if (buf == 'J')
-      {
+      } else if (buf == 'J') {
         io2 = true;
       }
 
@@ -179,7 +173,7 @@ void send_serial_reboot() {
 // *************************************************
 void setup() {
   Serial.begin(115200);
-  
+
 #ifdef VICE_MODE
   Serial2.begin(115200);
 #endif
@@ -192,12 +186,12 @@ void setup() {
   // is busy talking to the C64
   xTaskCreatePinnedToCore(
     WifiCoreLoop, /* Function to implement the task */
-    "Task1",   /* Name of the task */
-    10000,     /* Stack size in words */
-    NULL,      /* Task input parameter */
-    0,         /* Priority of the task */
-    &Task1,    /* Task handle. */
-    0);        /* Core where the task should run */
+    "Task1",      /* Name of the task */
+    10000,        /* Stack size in words */
+    NULL,         /* Task input parameter */
+    0,            /* Priority of the task */
+    &Task1,       /* Task handle. */
+    0);           /* Core where the task should run */
 
   // get the wifi mac address, this is used to identify the cartridge.
   commandMessage.command = GetWiFiMacAddressCommand;
@@ -237,7 +231,7 @@ void setup() {
   myNickName = settings.getString("myNickName", "empty");
 
   // get the last known message id (only the private is stored in eeprom)
-  lastprivmsg = settings.getULong("lastprivmsg", 1)  ;
+  lastprivmsg = settings.getULong("lastprivmsg", 1);
 
   // get Chatserver ip/fqdn from eeprom
   server = settings.getString("server", "www.chat64.nl");
@@ -291,10 +285,10 @@ void setup() {
   delay(250);
   digitalWrite(oC64RST, !new_state);
 
-  
+
 #endif
 
-  // start wifi 
+  // start wifi
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
 
@@ -403,6 +397,10 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 254 = C64 triggers call to the website for new public message
           // ------------------------------------------------------------------------------
+          
+          // send urgent messages first
+          doUrgentMessage(); 
+
           msgtype = "public";
 
           // do we have any messages in the page buffer?
@@ -442,7 +440,7 @@ void loop() {
 
 
 
-          if (haveMessage == 1 or haveMessage == 3) {
+          if (haveMessage == 1) {
             // copy the msgbuffer to the outbuffer
             for (int x = 0; x < msgbuffersize; x++) { outbuffer[x] = msgbuffer[x]; }
 
@@ -514,15 +512,25 @@ void loop() {
 
           if (RecipientName != "") {
             // is this a valid username?
+
             String test_name = RecipientName;
             test_name.toLowerCase();
+#ifdef debug
+            Serial.print("known users: ");
+            Serial.println(users);
+            Serial.print("Name under test: ");
+            Serial.println(test_name);
+#endif
             if (users.indexOf(test_name + ';') >= 0) {
               // user exists
               msgtype = "private";
               pmSender = '@' + RecipientName;
             } else {
               // user does not exist
-              urgentMessage = " System:  Unknown user:" + RecipientName;
+#ifdef debug
+              Serial.println("Username not found in list");
+#endif
+              urgentMessage = "System:  Unknown user:" + RecipientName;
               send_error = 1;
               break;
             }
@@ -538,7 +546,7 @@ void loop() {
           // Now send it with retry!
           bool sc = false;
           int retry = 0;
-          while (sc == false and retry < 5) {
+          while (sc == false and retry < 2) {
             commandMessage.command = SendMessageToServerCommand;
             Encoded.toCharArray(commandMessage.data.sendMessageToServer.encoded, sizeof(commandMessage.data.sendMessageToServer.encoded));
             RecipientName.toCharArray(commandMessage.data.sendMessageToServer.recipientName, sizeof(commandMessage.data.sendMessageToServer.recipientName));
@@ -547,7 +555,7 @@ void loop() {
             sc = responseMessage.response.boolean;
             // sending the message fails, take a short break and try again
             if (!sc) {
-              delay(1000);
+              delay(2000);
               retry = retry + 1;
             }
           }
@@ -612,7 +620,9 @@ void loop() {
           // start byte 249 = C64 asks if this is an existing user (for private chat)
           // ------------------------------------------------------------------------------
           sendByte(send_error);
-          sendByte(128);
+          sendByte(128);          
+          Serial.print("Send error = ");
+          Serial.println(send_error);
           send_error = 0;
           break;
         }
@@ -645,8 +655,9 @@ void loop() {
         {
           // ------------------------------------------------------------------------------
           // start byte 247 = C64 triggers call to the website for new private message
-          // ------------------------------------------------------------------------------
-
+          // ------------------------------------------------------------------------------          
+          // send urgent messages first
+          doUrgentMessage();          
 
           msgtype = "private";
           pmCount = 0;
@@ -683,7 +694,7 @@ void loop() {
             pos1 = 0;
             getMessage = true;
           }
-          if (haveMessage == 2 or haveMessage == 3) {
+          if (haveMessage == 2) {
             // copy the msgbuffer to the outbuffer
             for (int x = 0; x < msgbuffersize; x++) { outbuffer[x] = msgbuffer[x]; }
 
@@ -698,9 +709,7 @@ void loop() {
               lastprivmsg = tempMessageIds[1];
               settings.begin("mysettings", false);
               settings.putULong("lastprivmsg", lastprivmsg);
-              settings.end(); 
-              
-
+              settings.end();
             }
             haveMessage = 0;
           } else {  // no private messages :-(
@@ -750,8 +759,8 @@ void loop() {
           String ns = bns;
           romVersion = ns;
           sendByte(128);
-          pastMatrix=true;
-          getMessage=true;
+          pastMatrix = true;
+          getMessage = true;
 #ifdef debug
           Serial.print("ROM Version=");
           Serial.println(romVersion);
@@ -842,11 +851,11 @@ void loop() {
             Serial.println("bad form");
 #endif
             break;
-          }          
+          }
           myNickName = getValue(ns, 32, 1);
 #ifdef debug
           Serial.println(myNickName);
-#endif          
+#endif
 
           settings.begin("mysettings", false);
           settings.putString("regID", regID);
@@ -942,21 +951,7 @@ void loop() {
           break;
         }
     }  // end of case statements
-
-    // ------------------------------------------------------------------------------
-    // Urgent message
-    // ------------------------------------------------------------------------------
-    if (urgentMessage != "" and haveMessage == 0) {
-      urgentMessage = "  " + urgentMessage;
-      msgbuffersize = urgentMessage.length() + 1;
-      urgentMessage.toCharArray(msgbuffer, msgbuffersize);
-      msgbuffer[0] = 1;
-      msgbuffer[1] = 143;
-      msgbuffer[2] = 146;
-      urgentMessage = "";
-      haveMessage = 3;
-    }
-
+ 
 #ifdef VICE_MODE
     accept_serial_command = true;
 #endif
@@ -1034,7 +1029,6 @@ void receive_buffer_from_C64(int cnt) {
 #ifdef VICE_MODE
       receive_serial_command();
 #endif
-
     }
     digitalWrite(oC64D7, LOW);
     dataFromC64 = false;
@@ -1111,11 +1105,13 @@ void sendByte(byte b) {
 #ifdef VICE_MODE
     receive_serial_command();
 #endif
-
   }
   io2 = false;
 }
 
+// ******************************************************************************
+// Deserialize the json encoded messages
+// ******************************************************************************
 void Deserialize() {
 
   DynamicJsonDocument doc(512);                                  // next we want to analyse the json data
@@ -1126,7 +1122,7 @@ void Deserialize() {
     // if we get a new message id back from the database, that means we have a new message
     // if the database returns the same message id, there is no new message for us..
     bool newid = false;
-    String channel = doc["channel"];    
+    String channel = doc["channel"];
     if ((channel == "private") and (newMessageId != messageIds[1])) {
       newid = true;
       tempMessageIds[1] = newMessageId;
@@ -1163,6 +1159,23 @@ void Deserialize() {
   }
 }
 
+// ******************************************************************************
+// Send out urgent message if available (error messages)
+// ******************************************************************************
+void doUrgentMessage(){
+  if (urgentMessage != ""){
+    Serial.println(urgentMessage);
+    urgentMessage = "   " + urgentMessage;       
+    outbuffersize = urgentMessage.length() + 1;     
+    urgentMessage.toCharArray(outbuffer, msgbuffersize);
+    outbuffer[0] = 1;
+    outbuffer[1] = 143;
+    outbuffer[2] = 146;
+    send_out_buffer_to_C64();            
+    urgentMessage = "";
+  }
+}
+
 void loadPrgfile() {
 
   int startaddress = (prgfile[1] * 0x100) + prgfile[0];  // get the start address from the prg file ($0801)
@@ -1179,8 +1192,8 @@ void loadPrgfile() {
   // Okay, lets start
   Serial.println("------ LOAD PRG FILE ------");
 
-  sendByte(20);  // first send the border color during loading 0-15, default = 14, 20 is blink (loading bars)  
-  sendByte(0);  // send the screen color during loading 0-15, default = 6, 20 is blink (loading bars)
+  sendByte(20);  // first send the border color during loading 0-15, default = 14, 20 is blink (loading bars)
+  sendByte(0);   // send the screen color during loading 0-15, default = 6, 20 is blink (loading bars)
 
 
   sendByte(prgfile[0]);  // send the start address (low byte = 01)
