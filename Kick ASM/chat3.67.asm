@@ -19,17 +19,18 @@
 //========================================================================================================= 
 main_init:                                        //                                    
     jsr $E544                                     // Clear screen
-    lda #5 ; sta $9c                              // default line color (green)
-    ldx #24                                       // zero SID sound register (1)
+    lda #5                                        //
+    sta $9c                                       // default line color (green)
     lda #0                                        // 
     sta $d020                                     // Set black screen
     sta $d021                                     // Set black border
-                                                  //
+    ldx #24                                       // zero SID sound register (1)
 !clear_sid_loop:                                  // Clear the SID registers
     sta $d400, x                                  // 
     dex                                           // 
     bne !clear_sid_loop-                          // 
-                                                  // 
+    lda #1
+    sta VOICE
     lda #<(nmi)                                   // \
     sta $0318                                     //  \ Load our new nmi vector
     lda #>(nmi)                                   //  / And replace the old vector to our own nmi routine
@@ -1280,44 +1281,39 @@ jsr !start_menu_screen-                           //
 //=========================================================================================================
 // SUB ROUTINE SOUND
 //=========================================================================================================
-!soundbell:                                       // 
+!soundbell:                                       //     
     lda #0                                        // 
-    sta $d400                                     // 
-    sta $d407                                     // 
-    lda #143                                      // set volume to max
+    sta $d400                                     // frequency voice 1 low byte 
+    sta $d407                                     // frequency voice 2 low byte 
+    lda #143                                      // set volume to max for all voices and MUTE voice 3
     sta $d418                                     // and store it here
     lda PITCH                                     // load the needed sound pitch (higher value = higher pitch)
-    sta $d401                                     // and store it here (voice 1)
-    sta $d408                                     // also here (voice 2)
+    sta $d401                                     // and store it here (voice 1), frequency voice 1 high byte
+    sta $d408                                     // also here (voice 2), frequency voice 2 high byte
                                                   // 
-    lda #15                                       // 
-    sta $d405                                     // set attack / decay lenght (voice 1)
-    sta $d40c                                     // set attack / decay lenght (voice 2)
     lda #249                                      // 
     sta $d406                                     // set volume sustain / release lenght (voice 1)
     sta $d40d                                     // set volume sustain / release lenght (voice 2)
-                                                  // 
     lda VOICE                                     // 
     cmp #2                                        // 
     beq !v2+                                      // 
-    lda #2                                        // 
-    sta VOICE                                     // 
-    lda #17                                       // 
+    inc VOICE                                     // 
+    lda #0                                        //
+    sta $d40d                                     // kill note playing on voice 2
+    lda #17                                       //
     sta $d404                                     // set triangle wave form (bit 4) and gate bit 0 to 1 (sound on)
-    lda #16                                       // 
-    sta $d404                                     // set gate bit 0 to 0 (sound off)
+    dec $d404                                     // set the address back to 16 (sound off), the sound will ring out because of the long sustain
     rts                                           // 
-!v2:                                              // 
-    lda #1                                        // 
-    sta VOICE                                     // 
-    lda #17                                       // 
+!v2:                                              //  
+    dec VOICE                                     // 
+    lda #0                                        //
+    sta $d406                                     // kill note playing on voice 1
+    lda #17                                       //     
     sta $d40b                                     // set triangle wave form (bit 4) and gate bit 0 to 1 (sound on)
-    lda #16                                       // 
-    sta $d40b                                     // set gate bit 0 to 0 (sound off)
+    dec $d40b                                     // set the address back to 16 (sound off), the sound will ring out because of the long sustain
     rts                                           // 
-                                                  // 
 !sounderror:                                      // 
-    lda #143                                      // set volume to max
+    lda #143                                      // set volume to max and mute voice 3
     sta $d418                                     // and store it here
     lda #5                                        // set the pitch very low
     sta $d401                                     // and store it here (voice 1)
@@ -2248,7 +2244,7 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.64"; .byte 128
+version:                      .byte 151; .text "3.65"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
 version_date:                 .byte 151; .text "04/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
