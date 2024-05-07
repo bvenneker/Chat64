@@ -18,8 +18,14 @@ bool accept_serial_command = true;
 
 Preferences settings;
 
-bool invert_reset_signal = false;  // false for pcb version 3.7 and up
-bool invert_nmi_signal = true;     // true for pcb version 3.7, false for rev 3.8
+bool invert_reset_signal = true ;   // true for pcb rev 2.0
+                                    // false for pcb rev 3.7 
+                                    // false for pcb rev 3.8
+
+bool invert_nmi_signal = false;     // false for pcb rev 2.0
+                                    // true for pcb rev 3.7, 
+                                    // false for rev 3.8
+
 
 
 // About the regID (registration id)
@@ -272,8 +278,6 @@ void setup() {
   pinMode(oC64NMI, OUTPUT);
   digitalWrite(oC64RST, invert_reset_signal);
   digitalWrite(oC64NMI, invert_nmi_signal);
-
-  digitalWrite(oC64NMI, LOW);
   pinMode(pload, OUTPUT);
   digitalWrite(pload, LOW);  // must be low to load parallel data
   pinMode(sclk, OUTPUT);
