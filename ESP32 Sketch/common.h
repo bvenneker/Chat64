@@ -8,7 +8,7 @@
 // Uncomment to enable VICE support
 // #define VICE_MODE
 
-#define SwVersion "3.68"
+#define SwVersion "3.69"
 
 
 #endif //COMMON_H_
