@@ -29,8 +29,10 @@ main_init:                                        //
     sta $d400, x                                  // 
     dex                                           // 
     bne !clear_sid_loop-                          // 
-    lda #1
-    sta VOICE
+    lda #$80                                      // disable SHIFT-Commodore
+    sta $0291                                     //
+    lda #1                                        // set default SID voice to 1
+    sta VOICE                                     //
     lda #<(nmi)                                   // \
     sta $0318                                     //  \ Load our new nmi vector
     lda #>(nmi)                                   //  / And replace the old vector to our own nmi routine
@@ -2244,9 +2246,9 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.65"; .byte 128
+version:                      .byte 151; .text "3.66"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
-version_date:                 .byte 151; .text "04/2024";.byte 128
+version_date:                 .byte 151; .text "05/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
