@@ -53,6 +53,7 @@ struct WiFiCommandMessage{
         struct SendMessageToServer {
             char encoded[500];
             char recipientName[20];
+            int  retryCount;
         } sendMessageToServer;
     } data;
 };
