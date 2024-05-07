@@ -75,7 +75,7 @@ void fill_userlist() {
 // *************************************************
 //  void to send a message to the server
 // *************************************************
-bool SendMessageToServer(String Encoded, String RecipientName, bool heartbeat) {
+bool SendMessageToServer(String Encoded, String RecipientName,int retryCount, bool heartbeat) {
   String serverName = "http://" + server + "/insertMessage.php";
   WiFiClient client;
   HTTPClient http;
@@ -91,7 +91,7 @@ bool SendMessageToServer(String Encoded, String RecipientName, bool heartbeat) {
   if (heartbeat) {
     httpRequestData = "regid=" + regID + "&call=heartbeat";
   } else {
-    httpRequestData = "sendername=" + myNickName + "&regid=" + regID + "&recipientname=" + RecipientName + "&message=" + Encoded;
+    httpRequestData = "sendername=" + myNickName + "&retryCount=" + retryCount +"&regid=" + regID + "&recipientname=" + RecipientName + "&message=" + Encoded;
   }
 
   // Send HTTP POST request
@@ -247,6 +247,7 @@ void WifiCoreLoop(void* parameter) {
           responseMessage.response.boolean = 
           SendMessageToServer(commandMessage.data.sendMessageToServer.encoded,
                               commandMessage.data.sendMessageToServer.recipientName,
+                              commandMessage.data.sendMessageToServer.retryCount,
                               false);
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           break;     
@@ -275,7 +276,7 @@ void WifiCoreLoop(void* parameter) {
     if (!getMessage) {  // this is a wait loop
       if (millis() > heartbeat + 25000) { // while we do nothing we send a heartbeat signal to the server
         heartbeat = millis();               // so that the web server knows you are still on line
-        SendMessageToServer("", "", true);  // heartbeat repeats every 25 seconds
+        SendMessageToServer("", "",0, true);  // heartbeat repeats every 25 seconds
         refreshUserPages = true;            // and refresh the user pages (who is online)
       }
       if (millis() > last_up_refresh + 30000 and pastMatrix) {
