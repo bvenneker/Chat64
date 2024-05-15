@@ -15,13 +15,6 @@ bool invert_nmi_signal = true;      // false for pcb rev 2.0
                                     // true for pcb rev 3.7, 
                                     // false for rev 3.8
 
-
-//on esp32 my uart is connected like this
-// black : pin gnd
-// white : pin 17
-// green : pin 16
-//
-
 #ifdef VICE_MODE
 bool accept_serial_command = true;
 #endif
@@ -1190,6 +1183,9 @@ void loadPrgfile() {
   Serial.println("Wait for c64 to send 100");
   // wait for the c64 to send byte 100
   while (ch != 100) {
+#ifdef VICE_MODE
+      receive_serial_command();
+#endif
     // do nothing
   }
   delay(10);
