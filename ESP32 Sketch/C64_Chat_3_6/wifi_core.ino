@@ -331,6 +331,7 @@ void WifiCoreLoop(void* parameter) {
       }
 
       textOutput = "";
+      heartbeat = millis(); // readAllMessages also updates the 'last seen' timestamp, so no need for a heartbeat for the next 25 seconds.
     }
     // Free resources
     httpb.end();

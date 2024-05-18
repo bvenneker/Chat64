@@ -8,20 +8,20 @@
 
 // shared variables between wifi core and app core
 
-extern String regID;       // String variale for your regID (leave it empty!)
-extern String macaddress;  // variable for the mac address (leave it empty!)
-extern String myNickName;  // variable for your nickname (leave it empty!)
+extern String regID;               // String variale for your regID (leave it empty!)
+extern String macaddress;          // variable for the mac address (leave it empty!)
+extern String myNickName;          // variable for your nickname (leave it empty!)
 extern String ServerConnectResult;
 extern byte ResultColor;
-extern int pmCount;       // counter for the number of unread private messages
-extern String pmSender;  // name of the personal message sender
-extern String ssid;       // do not change this!
-extern String password;  // do not change this!
+extern int pmCount;               // counter for the number of unread private messages
+extern String pmSender;           // name of the personal message sender
+extern String ssid; 
+extern String password;
 extern String timeoffset;
-extern String server;                 // do not change this!
-extern volatile unsigned long lastprivmsg;  // do not change this!
-extern String msgtype;  // do not change this!
-extern String users;          // a list of all users on this server.
+extern String server;
+extern volatile unsigned long lastprivmsg;
+extern String msgtype;
+extern String users;
 extern volatile bool updateUserlist;
 extern char msgbuffer[500];
 extern volatile int msgbuffersize;
