@@ -13,7 +13,7 @@
 // green : pin 16
 //
 
-#define SwVersion "3.69"
+#define SwVersion "3.70"
 
 
 #endif //COMMON_H_
