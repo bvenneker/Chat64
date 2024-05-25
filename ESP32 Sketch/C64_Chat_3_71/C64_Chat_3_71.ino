@@ -11,7 +11,7 @@ bool invert_reset_signal = false ;  // true for pcb rev 2.0
                                     // false for pcb rev 3.7 
                                     // false for pcb rev 3.8
 
-bool invert_nmi_signal = true;      // false for pcb rev 2.0
+bool invert_nmi_signal = false;     // false for pcb rev 2.0
                                     // true for pcb rev 3.7, 
                                     // false for rev 3.8
 
