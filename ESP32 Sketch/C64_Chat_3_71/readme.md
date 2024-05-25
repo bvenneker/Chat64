@@ -2,11 +2,11 @@
 
 **Only for cartridges that have the bootloader EEPROM.**
 
-1) Download ALL files from the ESP32 Sketch folder on github and put them in a local folder called "C64_Chat_3_6".
+1) Download the zip file from this folder and extract it. You now should have a folder called: C64_Chat_3_71 with all file files in it.
 
 <img src="/Artwork/updt1.png" width="300">
  
-2) Open C64_Chat_3_6.ino in Arduino IDE. You should see that the other files have been opened automatically.
+2) Open C64_Chat_3_71.ino in Arduino IDE. You should see that the other files have been opened automatically.
 
 <img src="/Artwork/updt2.png" width="400">
 
@@ -24,4 +24,4 @@
 <img src="/Artwork/updt4.png" width="400">
 
 ---
-last updated for version 3.69
+last updated for version 3.71
