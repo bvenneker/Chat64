@@ -229,7 +229,8 @@ void WifiCoreLoop(void* parameter) {
     {
       switch(commandMessage.command){
         case WiFiBeginCommand: 
-          WiFi.mode(WIFI_STA);
+          WiFi.mode(WIFI_STA);                 
+          WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
           WiFi.begin(ssid, password);
           break;
         case ConnectivityCheckCommand:

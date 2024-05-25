@@ -190,6 +190,7 @@ void setup() {
     &Task1,       /* Task handle. */
     0);           /* Core where the task should run */
 
+
   // get the wifi mac address, this is used to identify the cartridge.
   commandMessage.command = GetWiFiMacAddressCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
@@ -237,6 +238,8 @@ void setup() {
   password = settings.getString("password", "empty");
   timeoffset = settings.getString("timeoffset", "+0");  // get the time offset from the eeprom
 
+  settings.putInt("invRST",(int)invert_reset_signal); // for future fuctionality
+  settings.putInt("invNMI",(int)invert_nmi_signal);   // for future fuctionality
   settings.end();
 
   // define inputs
@@ -583,11 +586,14 @@ void loop() {
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
-          ssid = getValue(ns, 32, 0);
+          ssid = getValue(ns, 129, 0);
+          ssid.trim();
           Serial.println(ssid);
-          password = getValue(ns, 32, 1);
+          password = getValue(ns, 129, 1);
+          password.trim();
           Serial.println(password);
-          timeoffset = getValue(ns, 32, 2);
+          timeoffset = getValue(ns, 129, 2);
+          timeoffset.trim();
           Serial.println(timeoffset);
 
           settings.begin("mysettings", false);
@@ -605,11 +611,9 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 251 = C64 ask for the current wifi ssid,password and time offset
           // ------------------------------------------------------------------------------
-          send_String_to_c64(ssid + " " + password + " " + timeoffset);
+          send_String_to_c64(ssid + char(129) + password + char(129) + timeoffset);
           break;
         }
-
-
 
       case 249:
         {
@@ -732,6 +736,7 @@ void loop() {
           char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
+          ns.trim();
           server = ns;
           settings.begin("mysettings", false);
           settings.putString("server", ns);  // store the new server name in the eeprom settings
@@ -746,15 +751,21 @@ void loop() {
         }
       case 245:
         {
-          // ------------------------------------------------------------------------------
-          // start byte 245 = C64 checks if the esp is connected at all.. or are we running in a simulator?
-          // ------------------------------------------------------------------------------
+          // -----------------------------------------------------------------------------------------------------
+          // start byte 245 = C64 checks if the Cartrdidge is connected at all.. or are we running in a simulator?
+          // -----------------------------------------------------------------------------------------------------
           // receive the ROM version number
           receive_buffer_from_C64(1);
           char bns[inbuffersize + 1];
+          // filter out any unwanted bytes, keep only ./01234567890
+          for (int k=0; k < inbuffersize ; k++){            
+            if (inbuffer[k] < 45 or inbuffer[k] > 57) inbuffer[k] = 32;                            
+          } 
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
+          ns.replace(" ","");
           romVersion = ns;
+          // respond with byte 128 to tell the commodore the cartridge is present
           sendByte(128);
           pastMatrix = true;
           getMessage = true;
@@ -775,7 +786,8 @@ void loop() {
           char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
-          if (ns == "RESET!") {
+          Serial.println(ns);
+          if (ns.startsWith("RESET!")) {
             settings.begin("mysettings", false);
             settings.putString("regID", "unregistered!");
             settings.putString("myNickName", "empty");
@@ -800,7 +812,7 @@ void loop() {
           xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
           xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           regStatus = responseMessage.response.str[0];
-          send_String_to_c64(macaddress + " " + regID + " " + myNickName + " " + regStatus);
+          send_String_to_c64(macaddress + char(129) + regID + char(129) + myNickName + char(129) + regStatus);
           break;
         }
       case 242:
@@ -839,17 +851,20 @@ void loop() {
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
 
-          regID = getValue(ns, 32, 0);
+          regID = getValue(ns, 129, 0);
+          regID.trim();
 #ifdef debug
           Serial.println(regID);
 #endif
           if (regID.length() != 16) {
 #ifdef debug
-            Serial.println("bad form");
+            Serial.println("Registration code length should be 16");
 #endif
             break;
           }
-          myNickName = getValue(ns, 32, 1);
+          myNickName = getValue(ns, 129, 1);
+          myNickName.trim();
+          myNickName.replace(' ','_');
 #ifdef debug
           Serial.println(myNickName);
 #endif
@@ -886,7 +901,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 236 = C64 asks for the server configuration status and servername
           // ------------------------------------------------------------------------------
-          send_String_to_c64(configured + " " + server + " " + SwVersion);
+          send_String_to_c64(configured + char(129) + server + char(129) + SwVersion);
 #ifdef debug
           Serial.println("response 236 = " + configured + " " + server + " " + SwVersion);
 #endif
@@ -1039,11 +1054,16 @@ void receive_buffer_from_C64(int cnt) {
       cnt = 0;
       break;
     }
-    if (ch == 128) cnt--;
+    if (ch == 128) {
+      cnt--;
+      inbuffer[i] = 129;
+      i++;
+    }
   }
   i--;
   inbuffer[i] = 0;  // close the buffer
   inbuffersize = i;
+
 }
 
 
