@@ -254,7 +254,7 @@ void WifiCoreLoop(void* parameter) {
           break;     
         case GetWiFiMacAddressCommand:
           responseMessage.command = GetWiFiMacAddressCommand;
-          WiFi.macAddress().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
+          Network.macAddress().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           break;                        
         case GetWiFiLocalIpCommand:

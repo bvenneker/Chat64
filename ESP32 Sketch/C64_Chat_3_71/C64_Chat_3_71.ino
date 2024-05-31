@@ -196,7 +196,6 @@ void setup() {
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
   xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
   macaddress = responseMessage.response.str;
-
   macaddress.replace(":", "");
   macaddress.toLowerCase();
   macaddress = macaddress.substring(4);
@@ -304,6 +303,8 @@ void setup() {
     // ConnectivityCheck();
 
 #ifdef debug
+    Serial.print("Macaddress=");
+    Serial.println(macaddress);
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(localIp);
     Serial.print("Name of the server (from eeprom): ");
@@ -484,10 +485,10 @@ void loop() {
               if (b != 32) {
                 if (b < 127) {
                   RecipientName = (RecipientName + screenCode_to_Ascii(b));
-                  Serial.print(screenCode_to_Ascii(b));
+                  //Serial.print(screenCode_to_Ascii(b));
                 } else {
                   colorCode = "[" + String(int(b)) + "]";
-                  Serial.print(colorCode);
+                  //Serial.print(colorCode);
                 }
               } else {
                 mstart = x + 1;
@@ -506,7 +507,7 @@ void loop() {
               toEncode = (toEncode + inbuffer[x]);
             }
           }
-          Serial.println("toEncode = " + toEncode);
+          //Serial.println("toEncode = " + toEncode);
 
           if (RecipientName != "") {
             // is this a valid username?
@@ -785,7 +786,7 @@ void loop() {
           char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
-          Serial.println(ns);
+          //Serial.println(ns);
           if (ns.startsWith("RESET!")) {
             settings.begin("mysettings", false);
             settings.putString("regID", "unregistered!");
@@ -1179,7 +1180,7 @@ void Deserialize() {
 // ******************************************************************************
 void doUrgentMessage(){
   if (urgentMessage != ""){
-    Serial.println(urgentMessage);
+    //Serial.println(urgentMessage);
     urgentMessage = "   " + urgentMessage;       
     outbuffersize = urgentMessage.length() + 1;     
     urgentMessage.toCharArray(outbuffer, msgbuffersize);
