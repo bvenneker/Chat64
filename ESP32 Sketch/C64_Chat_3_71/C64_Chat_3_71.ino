@@ -279,10 +279,9 @@ void setup() {
   digitalWrite(sclk, LOW);  //data shifts to serial data output on the transition from low to high.
 
   // Reset the C64, toggle the output pin
-  uint32_t new_state = 1 - (GPIO.out >> oC64RST & 0x1);
-  digitalWrite(oC64RST, new_state);
+  digitalWrite(oC64RST, !invert_reset_signal);
   delay(250);
-  digitalWrite(oC64RST, !new_state);
+  digitalWrite(oC64RST, invert_reset_signal);
 
 
 #endif
@@ -1091,11 +1090,10 @@ void triggerNMI() {
 #else
 
   // toggle NMI
-  uint32_t new_state = 1 - (GPIO.out >> oC64NMI & 0x1);
-  digitalWrite(oC64NMI, new_state);
+  digitalWrite(oC64NMI, !invert_nmi_signal);
   delayMicroseconds(175);  // minimal 100 microseconds delay
   // And toggle back
-  digitalWrite(oC64NMI, !new_state);
+  digitalWrite(oC64NMI, invert_nmi_signal);
 
 #endif
 }
