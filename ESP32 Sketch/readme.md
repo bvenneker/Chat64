@@ -2,6 +2,9 @@
 
 **Only for cartridges that have the bootloader EEPROM.**
 
+**Update your Libraries and Boards in Arduino IDE**
+This revision uses ESP32 version 3.0 (in boards manager)
+
 1) Download the zip file from this folder and extract it. You now should have a folder called: C64_Chat_3_73 with all file files in it.
 
 <img src="/Artwork/updt1.png" width="300">

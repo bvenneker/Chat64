@@ -1,7 +1,8 @@
 #ifndef COMMON_H_
 #define COMMON_H_
-
 #include "Arduino.h"
+
+#define SwVersion "3.73"
 
 #define debug
 
@@ -13,7 +14,7 @@
 // green : pin 16
 //
 
-#define SwVersion "3.73"
+
 
 
 #endif //COMMON_H_
