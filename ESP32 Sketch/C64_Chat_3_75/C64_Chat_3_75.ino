@@ -42,6 +42,7 @@ char outbuffer[250];  // a character buffer for outgoing data
 int outbuffersize = 0;
 char textsize = 0;
 int it = 0;
+int doReset =0;
 volatile byte ch = 0;
 TaskHandle_t Task1;
 volatile bool internalLEDstatus = false;
@@ -165,6 +166,20 @@ void send_serial_reboot() {
 }
 #endif
 
+void create_Task_WifiCore(){
+  // we create a task for the second (unused) core of the esp32
+  // this task will communicate with the web site while the other core
+  // is busy talking to the C64
+  xTaskCreatePinnedToCore(
+    WifiCoreLoop, /* Function to implement the task */
+    "Task1",      /* Name of the task */
+    10000,        /* Stack size in words */
+    NULL,         /* Task input parameter */
+    0,            /* Priority of the task */
+    &Task1,       /* Task handle. */
+    0);           /* Core where the task should run */
+
+}
 // *************************************************
 //  SETUP
 // *************************************************
@@ -178,18 +193,7 @@ void setup() {
   commandBuffer = xMessageBufferCreate(sizeof(commandMessage) + sizeof(size_t));
   responseBuffer = xMessageBufferCreate(sizeof(responseMessage) + sizeof(size_t));
 
-  // we create a task for the second (unused) core of the esp32
-  // this task will communicate with the web site while the other core
-  // is busy talking to the C64
-  xTaskCreatePinnedToCore(
-    WifiCoreLoop, /* Function to implement the task */
-    "Task1",      /* Name of the task */
-    10000,        /* Stack size in words */
-    NULL,         /* Task input parameter */
-    0,            /* Priority of the task */
-    &Task1,       /* Task handle. */
-    0);           /* Core where the task should run */
-
+  create_Task_WifiCore();
 
   // get the wifi mac address, this is used to identify the cartridge.
   commandMessage.command = GetWiFiMacAddressCommand;
@@ -217,7 +221,8 @@ void setup() {
 
   // init settings object to store settings in the eeprom
   settings.begin("mysettings", false);
-
+  //
+  doReset = settings.getInt("doReset", 0);
   // get the configured status from the eeprom
   configured = settings.getString("configured", "empty");
 
@@ -269,6 +274,7 @@ void setup() {
   digitalWrite(oC64D7, LOW);
   pinMode(oC64RST, OUTPUT);
   pinMode(oC64NMI, OUTPUT);
+  
   digitalWrite(oC64RST, invert_reset_signal);
   digitalWrite(oC64NMI, invert_nmi_signal);
 
@@ -277,20 +283,37 @@ void setup() {
   pinMode(sclk, OUTPUT);
   digitalWrite(sclk, LOW);  //data shifts to serial data output on the transition from low to high.
 
+
+
+
+if (doReset != 157){
   // Reset the C64, toggle the output pin
   digitalWrite(oC64RST, !invert_reset_signal);
   delay(250);
   digitalWrite(oC64RST, invert_reset_signal);
+} else {
+  settings.begin("mysettings", false);
+  settings.putInt("doReset", 0);
 
+  messageIds[0] = settings.getULong("lastPubMessage",0);
+  messageIds[1] = settings.getULong("lastPrivMessage",0);
+  
+  settings.end();
+  pastMatrix=true;
+}
+  settings.begin("mysettings", false);
+  settings.putInt("doReset", 0);
+  settings.end();
 
 #endif
+
+
+  // load the prg file
+  if (!pastMatrix) loadPrgfile();
 
   // start wifi
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
-
-  // load the prg file
-  loadPrgfile();
 
   commandMessage.command = GetWiFiLocalIpCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
@@ -396,10 +419,11 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 254 = C64 triggers call to the website for new public message
           // ------------------------------------------------------------------------------
-          
           // send urgent messages first
           doUrgentMessage(); 
-
+          // if the user list is empty, get the list
+          // also refresh the userlist when we switch from public to private messaging and vice versa
+          if (users.length() < 1 or msgtype != "public") updateUserlist = true;
           msgtype = "public";
 
           // do we have any messages in the page buffer?
@@ -457,9 +481,7 @@ void loop() {
           } else {  // no public messages :-(
             sendByte(128);
           }
-          // if the user list is empty, get the list
-          // also refresh the userlist when we switch from public to private messaging and vice versa
-          if (users.length() < 1 or msgtype != "public") updateUserlist = true;
+
           break;
         }
 
@@ -485,10 +507,8 @@ void loop() {
               if (b != 32) {
                 if (b < 127) {
                   RecipientName = (RecipientName + screenCode_to_Ascii(b));
-                  //Serial.print(screenCode_to_Ascii(b));
                 } else {
                   colorCode = "[" + String(int(b)) + "]";
-                  //Serial.print(colorCode);
                 }
               } else {
                 mstart = x + 1;
@@ -507,11 +527,9 @@ void loop() {
               toEncode = (toEncode + inbuffer[x]);
             }
           }
-          //Serial.println("toEncode = " + toEncode);
 
           if (RecipientName != "") {
             // is this a valid username?
-
             String test_name = RecipientName;
             test_name.toLowerCase();
 #ifdef debug
@@ -546,6 +564,7 @@ void loop() {
           bool sc = false;
           int retry = 0;
           while (sc == false and retry < 2) {
+            sendingMessage=1;
             commandMessage.command = SendMessageToServerCommand;
             Encoded.toCharArray(commandMessage.data.sendMessageToServer.encoded, sizeof(commandMessage.data.sendMessageToServer.encoded));
             RecipientName.toCharArray(commandMessage.data.sendMessageToServer.recipientName, sizeof(commandMessage.data.sendMessageToServer.recipientName));
@@ -565,6 +584,7 @@ void loop() {
             send_error = 1;
           } else {
             // No error, read the message back from the database to show it on screen
+            sendingMessage=0;
             getMessage = true;  // get the message we just inserted
           }
           break;
@@ -622,8 +642,6 @@ void loop() {
           // ------------------------------------------------------------------------------
           sendByte(send_error);
           sendByte(128);          
-          Serial.print("Send error = ");
-          Serial.println(send_error);
           send_error = 0;
           break;
         }
@@ -656,9 +674,13 @@ void loop() {
         {
           // ------------------------------------------------------------------------------
           // start byte 247 = C64 triggers call to the website for new private message
-          // ------------------------------------------------------------------------------          
+          // ------------------------------------------------------------------------------                    
+
           // send urgent messages first
           doUrgentMessage();          
+          // if the user list is empty, get the list
+          // also refresh the userlist when we switch from public to private messaging and vice versa
+          if (users.length() < 1 or msgtype != "private") updateUserlist = true;
 
           msgtype = "private";
           pmCount = 0;
@@ -716,9 +738,7 @@ void loop() {
           } else {  // no private messages :-(
             sendByte(128);
           }
-          // if the user list is empty, get the list
-          // also refresh the userlist when we switch from public to private messaging and vice versa
-          if (users.length() < 1 or msgtype != "private") updateUserlist = true;
+          
           break;
         }
 
@@ -786,7 +806,6 @@ void loop() {
           char bns[inbuffersize + 1];
           strncpy(bns, inbuffer, inbuffersize + 1);
           String ns = bns;
-          //Serial.println(ns);
           if (ns.startsWith("RESET!")) {
             settings.begin("mysettings", false);
             settings.putString("regID", "unregistered!");
@@ -1063,7 +1082,6 @@ void receive_buffer_from_C64(int cnt) {
   i--;
   inbuffer[i] = 0;  // close the buffer
   inbuffersize = i;
-
 }
 
 
@@ -1108,7 +1126,7 @@ void sendByte(byte b) {
   io2 = false;
   triggerNMI();
   // wait for io2 interupt
-  unsigned long timeOut = millis() + 500;
+  unsigned long timeOut = millis() + 300;
   while (io2 == false) {
     delayMicroseconds(2);
     if (millis() > timeOut) {
@@ -1129,7 +1147,6 @@ void sendByte(byte b) {
 // Deserialize the json encoded messages
 // ******************************************************************************
 void Deserialize() {
-
   DynamicJsonDocument doc(512);                                  // next we want to analyse the json data
   DeserializationError error = deserializeJson(doc, msgbuffer);  // deserialize the json document
 
@@ -1172,6 +1189,7 @@ void Deserialize() {
       msgbuffersize = 0;
       haveMessage = 0;
     }
+    doc.clear();
   }
 }
 
@@ -1180,7 +1198,6 @@ void Deserialize() {
 // ******************************************************************************
 void doUrgentMessage(){
   if (urgentMessage != ""){
-    //Serial.println(urgentMessage);
     urgentMessage = "   " + urgentMessage;       
     outbuffersize = urgentMessage.length() + 1;     
     urgentMessage.toCharArray(outbuffer, msgbuffersize);
@@ -1197,32 +1214,23 @@ void loadPrgfile() {
   int startaddress = (prgfile[1] * 0x100) + prgfile[0];  // get the start address from the prg file ($0801)
   int endaddress = startaddress + sizeof(prgfile) - 2;   // calculate the end address
 
-  delay(2000);  // een delay om de C64 tijd te geven om op te starten
-
-  Serial.println("Wait for c64 to send 100");
-  // wait for the c64 to send byte 100
-  while (ch != 100) {
+  delay(2000);                                           // give the C64 some time to boot
+  Serial.println("Wait for c64 to send 100"); 
+  while (ch != 100) {                                    // wait for the c64 to send byte 100
 #ifdef VICE_MODE
       receive_serial_command();
 #endif
     // do nothing
   }
   delay(10);
-  // Okay, lets start
   Serial.println("------ LOAD PRG FILE ------");
-
-  sendByte(20);  // first send the border color during loading 0-15, default = 14, 20 is blink (loading bars)
-  sendByte(0);   // send the screen color during loading 0-15, default = 6, 20 is blink (loading bars)
-
-
-  sendByte(prgfile[0]);  // send the start address (low byte = 01)
-  sendByte(prgfile[1]);  // send the start address (high byte = 08)
-
-  sendByte(lowByte(endaddress));   // send the END address (low byte)
-  sendByte(highByte(endaddress));  // send the END address (high byte)
-
-  // Now send all the rest of the bytes
-  for (int x = 2; x < sizeof(prgfile); x++) {
+  sendByte(20);                                      // first send the border color during loading 0-15, default = 14, 20 is blink (loading bars)
+  sendByte(0);                                       // send the screen color during loading 0-15, default = 6, 20 is blink (loading bars)
+  sendByte(prgfile[0]);                              // send the start address (low byte = 01)
+  sendByte(prgfile[1]);                              // send the start address (high byte = 08)
+  sendByte(lowByte(endaddress));                     // send the END address (low byte)
+  sendByte(highByte(endaddress));                    // send the END address (high byte)
+  for (int x = 2; x < sizeof(prgfile); x++) {        // Now send all the rest of the bytes
     sendByte(prgfile[x]);
   }
   sendByte(0);

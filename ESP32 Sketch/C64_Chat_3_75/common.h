@@ -2,7 +2,7 @@
 #define COMMON_H_
 #include "Arduino.h"
 
-#define SwVersion "3.73"
+#define SwVersion "3.75"
 
 #define debug
 

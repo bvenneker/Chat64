@@ -19,7 +19,7 @@ String pmSender = "";  // name of the personal message sender
 String ssid = "empty";      // do not change this!
 String password = "empty";  // do not change this!
 String timeoffset = "empty";
-String server = "empty";                 // do not change this!
+String server = "empty";  // do not change this!
 volatile unsigned long messageIds[] = { 0, 0 };
 volatile unsigned long tempMessageIds[] = { 0, 0 };
 volatile unsigned long lastprivmsg = 0;
@@ -31,6 +31,8 @@ volatile int msgbuffersize = 0;
 volatile int haveMessage = 0;
 volatile bool getMessage = false;
 volatile bool pastMatrix = false;
+volatile bool aboutToReset = false;
+volatile bool sendingMessage = false;
 String userPages[6];
 String romVersion = "0.0";
 
@@ -54,7 +56,10 @@ void fill_userlist() {
   String httpRequestData = "regid=" + regID + "&call=list";
 
   // Send HTTP POST request
+  unsigned long responseTime = millis();
   int httpResponseCode = http.POST(httpRequestData);
+  responseTime = millis() - responseTime;
+  if (responseTime > 10000) softReset();
   String result = "0";
 
   if (httpResponseCode == 200) {
@@ -70,12 +75,14 @@ void fill_userlist() {
 
   // Free resources
   http.end();
+  client.stop();
 }
 
 // *************************************************
 //  void to send a message to the server
 // *************************************************
-bool SendMessageToServer(String Encoded, String RecipientName,int retryCount, bool heartbeat) {
+bool SendMessageToServer(String Encoded, String RecipientName, int retryCount, bool heartbeat) {
+
   String serverName = "http://" + server + "/insertMessage.php";
   WiFiClient client;
   HTTPClient http;
@@ -91,11 +98,14 @@ bool SendMessageToServer(String Encoded, String RecipientName,int retryCount, bo
   if (heartbeat) {
     httpRequestData = "regid=" + regID + "&call=heartbeat";
   } else {
-    httpRequestData = "sendername=" + myNickName + "&retryCount=" + retryCount +"&regid=" + regID + "&recipientname=" + RecipientName + "&message=" + Encoded;
+    httpRequestData = "sendername=" + myNickName + "&retryCount=" + retryCount + "&regid=" + regID + "&recipientname=" + RecipientName + "&message=" + Encoded;
   }
 
   // Send HTTP POST request
+  unsigned long responseTime = millis();
   int httpResponseCode = http.POST(httpRequestData);
+  responseTime = millis() - responseTime;
+  if (responseTime > 10000) softReset();
 
   // httpResponseCode should be 200
   if (httpResponseCode == 200) {
@@ -103,6 +113,7 @@ bool SendMessageToServer(String Encoded, String RecipientName,int retryCount, bo
   }
   // Free resources
   http.end();
+  client.stop();
   return result;
 }
 
@@ -123,14 +134,19 @@ String getUserList(int page) {
   String serverName = "http://" + server + "/listUsers.php";
   WiFiClient client;
   HTTPClient http;
+  http.setReuse(1);
   http.begin(client, serverName);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   String httpRequestData = "regid=" + regID + "&page=" + page + "&version=2";
+  unsigned long responseTime = millis();
   http.POST(httpRequestData);
+  responseTime = millis() - responseTime;
+  if (responseTime > 10000) softReset();
   String result = "0";
   result = http.getString();
   result.trim();
   http.end();
+  client.stop();
   return result;
 }
 
@@ -138,7 +154,6 @@ String getUserList(int page) {
 //  char function that returns the registration status
 // ****************************************************
 char getRegistrationStatus() {
-
   String serverName = "http://" + server + "/getRegistration.php";
   WiFiClient client;
   HTTPClient http;
@@ -148,7 +163,10 @@ char getRegistrationStatus() {
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   // Prepare your HTTP POST request data
   String httpRequestData = "macaddress=" + macaddress + "&regid=" + regID + "&nickname=" + myNickName + "&version=" + SwVersion;
+  unsigned long responseTime = millis();
   int httpResponseCode = http.POST(httpRequestData);
+  responseTime = millis() - responseTime;
+  if (responseTime > 10000) softReset();
   char result = 'x';
 
   if (httpResponseCode == 200) {
@@ -179,10 +197,13 @@ void ConnectivityCheck() {
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
                                                                         // Prepare your HTTP POST request data
   String httpRequestData = "checkcon=1";                                // Send HTTP POST request
-  int httpResponseCode = http.POST(httpRequestData);                    // httpResponseCode should be "connected"
-  if (httpResponseCode > 0) {                                           // get the response from the php page.
-    ServerConnectResult = http.getString();                             // Connected: Connected to database
-    ServerConnectResult.trim();                                         // Not connected: Not connected to database
+  unsigned long responseTime = millis();
+  int httpResponseCode = http.POST(httpRequestData);  // httpResponseCode should be "connected"
+  responseTime = millis() - responseTime;
+  if (responseTime > 10000) softReset();
+  if (httpResponseCode > 0) {                // get the response from the php page.
+    ServerConnectResult = http.getString();  // Connected: Connected to database
+    ServerConnectResult.trim();              // Not connected: Not connected to database
 #ifdef debug
     Serial.println("server response: " + ServerConnectResult);
 #endif
@@ -205,6 +226,7 @@ void ConnectivityCheck() {
 #endif
   }
   http.end();
+  client.stop();
 }
 
 // **************************************************
@@ -224,44 +246,44 @@ void WifiCoreLoop(void* parameter) {
 
     // check for any command comming from app core for at most 1 sec.
     size_t ret = xMessageBufferReceive(commandBuffer, &commandMessage, sizeof(commandMessage), pdMS_TO_TICKS(1000));
-    
-    if (ret != 0)
-    {
-      switch(commandMessage.command){
-        case WiFiBeginCommand: 
-          WiFi.mode(WIFI_STA);                 
+
+    if (ret != 0) {
+      switch (commandMessage.command) {
+        case WiFiBeginCommand:
+          WiFi.mode(WIFI_STA);
           WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
           WiFi.begin(ssid, password);
           break;
         case ConnectivityCheckCommand:
           ConnectivityCheck();
           break;
-        case GetRegistrationStatusCommand: {
+        case GetRegistrationStatusCommand:
+          {
             responseMessage.command = GetRegistrationStatusCommand;
             char regStatus = getRegistrationStatus();
             responseMessage.response.str[0] = regStatus;
             xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           }
-          break;         
+          break;
         case SendMessageToServerCommand:
           responseMessage.command = SendMessageToServerCommand;
-          responseMessage.response.boolean = 
-          SendMessageToServer(commandMessage.data.sendMessageToServer.encoded,
-                              commandMessage.data.sendMessageToServer.recipientName,
-                              commandMessage.data.sendMessageToServer.retryCount,
-                              false);
+          responseMessage.response.boolean =
+            SendMessageToServer(commandMessage.data.sendMessageToServer.encoded,
+                                commandMessage.data.sendMessageToServer.recipientName,
+                                commandMessage.data.sendMessageToServer.retryCount,
+                                false);
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-          break;     
+          break;
         case GetWiFiMacAddressCommand:
           responseMessage.command = GetWiFiMacAddressCommand;
           Network.macAddress().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-          break;                        
+          break;
         case GetWiFiLocalIpCommand:
           responseMessage.command = GetWiFiLocalIpCommand;
           WiFi.localIP().toString().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-          break;                        
+          break;
         default:
           Serial.print("Invalid Command Message: ");
           Serial.println(commandMessage.command);
@@ -274,52 +296,58 @@ void WifiCoreLoop(void* parameter) {
       continue;
     }
 
-    if (!getMessage) {  // this is a wait loop
-      if (millis() > heartbeat + 25000) { // while we do nothing we send a heartbeat signal to the server
-        heartbeat = millis();               // so that the web server knows you are still on line
-        SendMessageToServer("", "",0, true);  // heartbeat repeats every 25 seconds
-        refreshUserPages = true;            // and refresh the user pages (who is online)
+    if (!getMessage) {                     // this is a wait loop
+      if (millis() > heartbeat + 25000) {  // while we do nothing we send a heartbeat signal to the server
+        heartbeat = millis();              // so that the web server knows you are still on line
+        if (!sendingMessage) {
+          SendMessageToServer("", "", 0, true);  // heartbeat repeats every 25 seconds
+        }
+        refreshUserPages = true;  // and refresh the user pages (who is online)
       }
-      if (millis() > last_up_refresh + 30000 and pastMatrix) {
+      if (millis() > last_up_refresh + 30000 and pastMatrix and !sendingMessage) {
         refreshUserPages = true;
       }
-      if (updateUserlist and !getMessage and pastMatrix) {
+      if (updateUserlist and !getMessage and pastMatrix and !sendingMessage) {
         updateUserlist = false;
         fill_userlist();
       }
-      if (refreshUserPages and !getMessage and pastMatrix) {
+      if (refreshUserPages and !getMessage and pastMatrix and !sendingMessage) {
         refreshUserPages = false;
         get_full_userlist();
         last_up_refresh = millis();
       }
       continue;
     }
-    
+
     // when the getMessage variable goes True, we drop out of the wait loop
     getMessage = false;                                               // first reset the getMessage variable back to false.
     String serverName = "http://" + server + "/readAllMessages.php";  // set up the server and needed web page
     WiFiClient client;
     HTTPClient httpb;
-    httpb.setReuse(true);
+
+    httpb.setReuse(0);
     httpb.begin(client, serverName);                                       // start the http connection
     httpb.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
 
     // Prepare your HTTP POST request data
-    String httpRequestData = "regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] +"&previousPrivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
+    String httpRequestData = "regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] + "&previousPrivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
 #ifdef debug
+    Serial.println(serverName);
     Serial.println(httpRequestData);
-    unsigned long responseTime = millis();
 #endif
+    unsigned long responseTime = millis();
     // Send HTTP POST request
-    int httpResponseCode = httpb.POST(httpRequestData);  
-#ifdef debug
+    int httpResponseCode = httpb.POST(httpRequestData);
     responseTime = millis() - responseTime;
+    if (responseTime > 10000) softReset();
+#ifdef debug
     Serial.print("http POST took: ");
     Serial.print(responseTime);
     Serial.println(" ms.");
-#endif      
+    Serial.print("Response code=");
+    Serial.println(httpResponseCode);
+#endif
     if (httpResponseCode == 200) {  // httpResponseCode should be 200
-
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
       textOutput.trim();                      // trim the output
 
@@ -332,11 +360,21 @@ void WifiCoreLoop(void* parameter) {
       }
 
       textOutput = "";
-      heartbeat = millis(); // readAllMessages also updates the 'last seen' timestamp, so no need for a heartbeat for the next 25 seconds.
+      heartbeat = millis();  // readAllMessages also updates the 'last seen' timestamp, so no need for a heartbeat for the next 25 seconds.
     }
     // Free resources
+
     httpb.end();
+    client.stop();  // without this, we have a small memory leak
   }
 }
 
-
+void softReset() {
+  settings.begin("mysettings", false);
+  settings.putInt("doReset", 157);
+  settings.putULong("lastPubMessage", messageIds[0]);
+  settings.putULong("lastPrivMessage", messageIds[1]);
+  settings.end();
+  delay(100);
+  ESP.restart();
+}

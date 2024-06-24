@@ -1,8 +1,16 @@
 // General info
-// PETSCI KEY CODES: https://sta.c64.org/cbm64petkey.html
-// SCREEN functions: https://sta.c64.org/cbm64scrfunc.html
+// Relaunch 64 IDE: https://github.com/sjPlot/Relaunch64/releases
+// Kick assembler for java 8: https://csdb.dk/release/?id=180813
+// Memory Map: http://www.bartvenneker.nl/C64/Mem_map.html
+// PETSCI KEY CODES: http://www.bartvenneker.nl/C64/Petscii_codes.html
+// SCREEN functions: http://www.bartvenneker.nl/C64/Screen_codes.html
+// Kernal Screen functions: http://www.bartvenneker.nl/C64/kernal_screen.html
+// All Kernal functions: http://www.bartvenneker.nl/C64/kernal.html
+// Petscii editor: https://petscii.krissz.hu/
+// Vice emulator: https://vice-emu.sourceforge.io/windows.html
+
 //=========================================================================================================
-//    Kick assembler
+//   ASM Dialect: Kick assembler  v5.9 by Mads Nielsen
 //=========================================================================================================
 *=$0800 "BASIC Start"                             // location to put a 1 line basic program so we can just
         .byte $00                                 // first byte of basic memory should be a zero
@@ -49,7 +57,6 @@ main_init:                                        //
     sta CHECKINTERVAL                             //         
     jsr !are_we_in_the_matrix+                    // check if we are running inside a simulator (esp32 is disconnected)
     jsr !start_screen+                            // Call the start screen sub routine first
-                                                  //
     jsr $E544                                     // Clear screen after start screen
                                                   //
     lda #23                                       // Load 23 into accumulator and use it to
@@ -402,17 +409,17 @@ rts
     lda #1                                        //
     sta $02                                       //
     jsr !splitRXbuffer+                           //
-    displayText(SPLITBUFFER,4,7)                  // Display the buffers on screen
+    displayText(SPLITBUFFER,4,7)                  // Display the buffers on screen (SSID name)
                                                   //
     lda #2                                        //
     sta $02                                       //
     jsr !splitRXbuffer+                           //
-    displayText(SPLITBUFFER,6,11)                 // Display the buffers on screen
+    displayText(SPLITBUFFER,6,11)                 // Display the buffers on screen (password)
                                                   //
     lda #3                                        //
     sta $02                                       //
     jsr !splitRXbuffer+                           //
-    displayText(SPLITBUFFER,8,14)                 // Display the buffers on screen
+    displayText(SPLITBUFFER,8, 23)                // Display the buffers on screen (time offset from GMT)
                                                   //                                                  
 !notVice:                                         // 
                                                   // Set the limits to where the cursor can travel
@@ -440,7 +447,7 @@ rts
     lda #8                                        // Load 8 into accumulator
     sta LIMIT_LINE                                // Store 8 into limit_line variable so the cursor van not go below line 24
     sta HOME_LINE                                 // Store 8 into Home_line variable, so the cursor van not go above line 22
-    lda #14                                       // Load 14 into accumulator
+    lda #23                                       // Load 14 into accumulator
     sta HOME_COLM                                 // Store 14 into home_column variable, so the cursor can not go below 10
     lda #1                                        // Load 1 into the accumulator
     sta CLEAR_FIELD_FLAG                          // SET clear text flag to 1 (default is zero)
@@ -495,7 +502,7 @@ rts
                                                   //
 !readTimeOffset:                                  //
     inc $fc                                       // Next read the time offset from the screen
-    lda #$4e                                      // the time offset starts at $054e
+    lda #$57                                      // the time offset starts at $0557
     sta $fb                                       // 
     lda #5                                        // set the number of character to read from screen
     sta READLIMIT 
@@ -948,7 +955,7 @@ jsr !start_menu_screen-                           //
     jsr !footer_F7_exit+                          // Display [ F7 ] to exit about
     ldx #0                                        // 
     lda #1										  // 1 is color white
-!loop:                                            // The version text is yellow, color that white
+!loop:                                            // The version text is yellow by default, color that white
     lda #1                                        //
     sta $d935,x                                   //
     inx                                           //
@@ -981,8 +988,8 @@ jsr !start_menu_screen-                           //
     jmp !f7_to_exit-                              // 
                                                   // 
 !footer_F7_exit:
-   // we use this same text twice but the displayText macro is quite heavy so
-   // it makes sense to crate a routine for this
+   // we use this same text only twice but the displayText macro is quite heavy so
+   // it makes sense to create a routine for this
    displayText(text_about_footer,24,8)
 rts
 //=========================================================================================================
@@ -1032,6 +1039,8 @@ rts
                                                   // 
 !keyinput:                                        // 
     jsr !check_for_messages+                      // 
+    lda #0                                        // write zero to address $d4
+    sta $d4                                       // to disable "quote mode" (special characters for cursor movement and such) 
 !:  jsr $ffe4                                     // Call kernal routine: Get character from keyboard buffer
     beq !keyinput-                                // Loop if there is none
     cmp #141                                      // Shift+Return or C=+Return will send the message immediately
@@ -2208,7 +2217,19 @@ rts
     lda CMD                                       // load the byte from variable CMD
     sta $de00                                     // write the byte to IO1
                                                   // 
+lda #0
+sta TIMEOUT1                                      // we need a simple timeout on this next loop
+sta TIMEOUT2                                      //
 !wait_message_complete:                           // wait for a response
+inc TIMEOUT1                                      // increase variable timeout1
+lda TIMEOUT1                                      // 
+cmp #0                                            //
+bne !+                                            //
+inc TIMEOUT2                                      // increase timout2 when timeout1 overloops
+lda TIMEOUT2                                      //
+cmp #170                                          // when timeout2 reaches a certain number, exit the loop
+beq !exit+
+!:
     lda RXFULL                                    // load RXFULL flag
     cmp #0                                        // compare with zero
     beq !wait_message_complete-                   // stay in this loop until we get a response
@@ -2268,9 +2289,9 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.67"; .byte 128
+version:                      .byte 151; .text "3.69"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
-version_date:                 .byte 151; .text "05/2024";.byte 128
+version_date:                 .byte 151; .text "06/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
@@ -2315,7 +2336,7 @@ text_help_private:            .byte 147; .text "To send a private message to som
                                        
 message_start:                .byte 21,20,19,18,17,16,15 // lookup table
 
-text_time_offset:             .byte 145; .text "Time offset:"; .byte 128
+text_time_offset:             .byte 145; .text "Time offset from GMT:"; .byte 128
 
 text_unreg_error:             .byte 146; .text "Error: Unregistered Cartridge"; .byte 213,11
                                          .text "to register goto: "; .byte 128
@@ -2412,7 +2433,10 @@ P_COLBLOCK400:                .fill 256,0         // screen color information
 P_COLBLOCK500:                .fill 256,0         // to backup colors when leaving the private chat screen
 P_COLBLOCK600:                .fill 256,0         // 
 P_COLBLOCK700:                .fill 256,0         //  
-                                              
+
+debug_in:    .byte 0                                              
+TIMEOUT1: .byte 0                                            
+TIMEOUT2: .byte 0                           
 //=========================================================================================================
 // MACROS
 //=========================================================================================================
@@ -2453,3 +2477,9 @@ P_COLBLOCK700:                .fill 256,0         //
     plp                                           // pull the the processor status from the stack
     }                                             // 
                                                   // 
+.macro colordebug(i){                             // 
+    sta debug_in
+    lda #i
+    sta $d020
+    lda debug_in
+}
