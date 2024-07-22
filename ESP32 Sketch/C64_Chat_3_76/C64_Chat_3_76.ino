@@ -15,6 +15,8 @@ bool invert_nmi_signal = false;     // false for pcb rev 2.0
                                     // true for pcb rev 3.7, 
                                     // false for rev 3.8
 
+//#define OTA_VERSION
+
 #ifdef VICE_MODE
 bool accept_serial_command = true;
 #endif
@@ -246,8 +248,15 @@ void setup() {
   password = settings.getString("password", "empty");
   timeoffset = settings.getString("timeoffset", "+0");  // get the time offset from the eeprom
 
+#ifndef OTA_VERSION
   settings.putInt("invRST",(int)invert_reset_signal); // for future fuctionality
   settings.putInt("invNMI",(int)invert_nmi_signal);   // for future fuctionality
+#else
+  invert_nmi_signal = settings.getInt("invNMI");
+  invert_reset_signal = settings.getInt("invRST");
+#endif
+
+
   settings.end();
 
   // define inputs
