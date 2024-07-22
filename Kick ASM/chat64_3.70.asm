@@ -676,11 +676,14 @@ jsr !splitRXbuffer+                               // copy the first element to S
                                                   // 
     ldx #22 ; jsr $E9FF                           // Clear line 22
     inx ; jsr $E9FF                               // Clear line 23
-    displayText(text_settings_saved,23,14)        // 
+    displayText(text_settings_saved,23,6)         // 
                                                   // 
     lda #255                                      // Delay 255... hamsters
     sta DELAY                                     // Store 255 in the DELAY variable
     jsr !delay+                                   // and call the delay subroutine
+    jsr !delay+                                   // a few times
+    jsr !delay+                                   // a few times
+    jsr !delay+                                   // a few times
     jsr !delay+                                   // a few times
     jmp !account_setup-                           // Rinse and repeat
                                                   // 
@@ -764,7 +767,7 @@ jsr !splitRXbuffer+                               // copy the first element to S
     lda #20 ; sta $fb                             // Load 20 into accumulator and store it in zero page address $fb
     jsr !draw_menu_line+                          // Call the draw_menu_line sub routine to draw a line on row 20
                                                   // 
-    displayText(text_server_menu,1,15)            // Display the menu title on line 1, row 15   
+    displayText(text_server_menu,1,13)            // Display the menu title on line 1, row 15   
     jsr !display_F7_menuItem+                     // Display "[ F7 ] exit menu" on line 17, row 3
                                                   // Now ask for the server ip/fqdn from ESP
     jsr !callstatus+                              // Call the sub routine to get config status and Servername
@@ -775,7 +778,7 @@ jsr !splitRXbuffer+                               // copy the first element to S
     jmp !connection_check+                        // 
 !server_setup_2:                                  // 
     ldx #23 ; jsr $e9ff                           // Clear line 23 (where the connection status is)
-    ldx #12 ; jsr $e9ff                           // Clear line 24 (where the Save Settings line is)
+    ldx #15 ; jsr $e9ff                           // Clear line 15 (where the Save Settings line is)
     lda #255                                      // Delay 255... hamsters
     sta DELAY                                     // Store 255 in the DELAY variable
     lda #1                                        // Load 1 into accumulator
@@ -817,19 +820,20 @@ jsr !splitRXbuffer+                               // copy the first element to S
     lda #29                                       // set the number of characters to read to 29
     sta READLIMIT                                 //
     jsr !read_from_screen+                        // Read the server ip/fqdn from screen into the TXBUFFER
-                                                  // At this point we have the server ip/fqdn, from the screen, in the txbuffer
+    jsr !wait_for_ready_to_receive+               // At this point we have the server ip/fqdn, from the screen, in the txbuffer
     jsr !wait_for_ready_to_receive+               // Prepare the ESP to receive
     lda #246                                      // Load 246 into accumulator
     sta $de00                                     // Send the start byte (246 = send new server ip/fqdn)
     jsr !send_buffer+                             // Send the new server ip/fqdn to the ESP32
                                                   // 
-    displayText(text_settings_saved,23,9)         // 
+    displayText(text_settings_saved,23,6)         // 
     ldx #24 ; jsr $e9ff                           // Clear line 24 (where the connection status is)
-                                                  // 
+    
+
     jsr !callstatus+                              // Check the configuration status
     lda CONFIG_STATUS                             // 
     cmp #4                                        // Server configuration changed, no change in status
-    beq    !nochange+                             // Skip status update
+    beq !nochange+                                // Skip status update
     lda #3                                        // Load "C" into accumulator
     jsr !sendstatus+                              // 
                                                   // 
@@ -841,6 +845,13 @@ jsr !splitRXbuffer+                               // copy the first element to S
     lda #255                                      //    
     sta DELAY                                     //    
     jsr !delay+                                   // and jump to the delay subroutine
+    jsr !delay+                                   
+    jsr !delay+                                   //  
+    jsr !delay+                                   // 
+    jsr !delay+                                   // 
+    jsr !delay+                                   // 
+    jsr !delay+                                   // 
+    jsr !delay+                                   // 
     jsr !delay+                                   // 
                                                   // 
 !connection_check:                                // 
@@ -851,12 +862,12 @@ jsr !splitRXbuffer+                               // copy the first element to S
     cmp #146                                      // Connection status begins with color code RED
     beq !Error+                                   // 
     cmp #149                                      // Connection status begins with color code GREEN
-    beq !Succes+                                  // 
-    jmp !server_setup_2-                          // 
+    beq !Succes+                                  //  
                                                   // 
 !Error:                                           // 
     ldx #24 ; jsr $e9ff                           // Clear line 24 (where the connection status is)
-    displayText(RXBUFFER,24,8)                    // Display the buffer (containing connection status) on screen
+     
+    displayText(RXBUFFER,24,5)                    // Display the buffer (containing connection status) on screen
     jsr !sounderror+                              // 
     jsr !delay+                                   // and jump to the delay subroutine
     jsr !delay+                                   // 
@@ -925,7 +936,6 @@ jsr !splitRXbuffer+                               // copy the first element to S
    displayText(text_update_download3,17,1)
    jsr !wait_for_ready_to_receive+
    lda #232                                      // load the number #232    
-   sta CMD                                       // Store that in variable CMD
    sta $de00 
    ldx #0                                        // x will be our index when we loop over the version text, we start at 1 to skip the first color byte
    
@@ -2520,7 +2530,7 @@ text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
 text_wifi_wait:               .byte 145; .text "Wait for connection"; .byte 128
-text_server_menu:             .byte 151; .text "SERVER SETUP";.byte 213,94,145;.text "Server:"; .byte 213,73                                                                     
+text_server_menu:             .byte 151; .text "SERVER SETUP  ";.byte 213,94,145;.text "Server:"; .byte 213,73                                                                     
                                          .text "Example: www.chat64.nl"; .byte 128                                                                   
 text_save_settings:           .byte 147; .text "[ F1 ] Save Settings"; .byte 128
 text_exit_menu:               .byte 147; .text "[ F7 ] Exit Menu"; .byte 128
@@ -2542,7 +2552,7 @@ text_account_mac:             .byte 145; .text "Mac address:"; .byte 128
 text_account_regid:           .byte 145; .text "Registration id:"; .byte 128
 text_account_nick_name:       .byte 145; .text "Nick Name:" ; .byte 128
                                                                                                                         
-text_settings_saved:          .byte 157; .text "Settings Saved"; .byte 128
+text_settings_saved:          .byte 157; .text "Settings Saved, please wait"; .byte 128
 text_account_menu_item_2:     .byte 147; .text "[ F6 ] Reset to factory defaults" ; .byte 128
 text_reset_shure:             .byte 146; .text "Clear all settings?"  ; .byte 213,52
                                          .text "Are you shure? press [ F4 ] to confirm"; .byte 213,87
@@ -2612,6 +2622,7 @@ doupdate:                     .text "UPDATE!"; .byte 128
 NEWSW:                        .fill 10,32 ; .byte 128         
 NEWROM:                       .fill 10,32 ; .byte 128         
 SWVERSION:                    .fill 10,32 ; .byte 128        //    
+SERVERNAME:                   .fill 40,32 ; .byte 128        
                                                   
 //=========================================================================================================
 // VARIABLE BUFFERS
@@ -2651,7 +2662,6 @@ DO_RESTORE_MESSAGE_LINES:     .byte 0             //
 PMUSER:                       .fill 12,32         //
 CURSORCOLOR:                  .byte 0             //
 SPLITBUFFER:                  .fill 40,32         //
-SERVERNAME:                   .fill 40,32         //
 RXBUFFER:                     .fill 256,128       // reserved space for incoming data
 TXBUFFER:                     .fill 256,128       // reserved space for outgoing data 
 M_CHARBLOCK400:               .fill 256,32        // reserved memory space to backup the screen 1

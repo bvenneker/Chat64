@@ -41,7 +41,7 @@ MessageBufferHandle_t commandBuffer;
 MessageBufferHandle_t responseBuffer;
 bool isWifiCoreConnected = false;
 int lastp = 0;
-
+String configured = "empty";  // do not change this!
 // ***************************************************************
 //   get the list of users from the webserver
 // ***************************************************************
@@ -299,8 +299,12 @@ void WifiCoreLoop(void* parameter) {
     isWifiCoreConnected = WiFi.isConnected();
     if (!isWifiCoreConnected) {
       continue;
-    }
+    } 
 
+    if (!configured.startsWith("d")){
+      continue;
+    }
+    
     if (!getMessage) {                     // this is a wait loop
       if (millis() > heartbeat + 25000) {  // while we do nothing we send a heartbeat signal to the server
         heartbeat = millis();              // so that the web server knows you are still on line

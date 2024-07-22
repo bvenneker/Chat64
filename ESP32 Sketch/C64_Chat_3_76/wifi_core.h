@@ -39,7 +39,7 @@ extern MessageBufferHandle_t responseBuffer;
 extern bool isWifiCoreConnected;
 extern volatile bool pastMatrix;
 extern volatile bool sendingMessage;
-
+extern String configured; 
 
 // list of wifi commands from app core to wifi core
 

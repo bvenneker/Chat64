@@ -15,7 +15,7 @@ bool invert_nmi_signal = false;     // false for pcb rev 2.0
                                     // true for pcb rev 3.7, 
                                     // false for rev 3.8
 
-//#define OTA_VERSION
+#define OTA_VERSION
 
 #ifdef VICE_MODE
 bool accept_serial_command = true;
@@ -31,7 +31,6 @@ bool accept_serial_command = true;
 // ********************************
 // **     Global Variables       **
 // ********************************
-String configured = "empty";  // do not change this!
 
 String urgentMessage = "";
 volatile bool wificonnected = false;
@@ -55,6 +54,7 @@ char multiMessageBufferPriv[3500];
 unsigned long first_check=0;
 WiFiCommandMessage commandMessage;
 WiFiResponseMessage responseMessage;
+
 
 // ********************************
 // **        OUTPUTS             **
@@ -672,6 +672,7 @@ void loop() {
             sendByte(146);
             send_String_to_c64("Not Connected to Wifi");
           } else {
+            wificonnected = true;
             commandMessage.command = GetWiFiLocalIpCommand;
             xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
             xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
@@ -924,6 +925,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 238 = C64 triggers call to the chatserver to test connectivity
           // ------------------------------------------------------------------------------
+          ServerConnectResult = "Timeout in response, try again";
           commandMessage.command = ConnectivityCheckCommand;
           xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
           break;
