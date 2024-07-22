@@ -41,7 +41,8 @@ main_init:                                        //
     bne !clear_sid_loop-                          // 
     lda #$80                                      // disable SHIFT-Commodore
     sta $0291                                     //
-    lda #1                                        // set default SID voice to 1
+    lda #1                                        // set default update check to 1
+    sta UPDATECHECK                               // set default SID voice to 1
     sta VOICE                                     //
     lda #<(nmi)                                   // \
     sta $0318                                     //  \ Load our new nmi vector
@@ -69,6 +70,7 @@ main_init:                                        //
     cmp #1                                        //
     bne !+                                        //
     jsr !sounderror+                              // error sound because cartridge was not found!
+    
 !:  jmp !main_chat_screen+                        // 
                                                   // 
 !mainmenu:                                        // 
@@ -265,7 +267,12 @@ rts
                                                   // 
 //=========================================================================================================
 !mainmenu:                                        // 
-    jsr !start_menu_screen-                       // 
+    lda UPDATECHECK    
+    cmp #2
+    bne !+ 
+    jsr !update_screen+
+
+!:  jsr !start_menu_screen-                       // 
     lda #22 ; sta $fb                             // Load 23 into accumulator and store it in zero page address $fb
     jsr !draw_menu_line+                          // Call the draw_menu_line sub routine to draw a line on row 23
     lda CONFIG_STATUS                             // Check the config status
@@ -534,8 +541,7 @@ rts
 //=========================================================================================================
 //    MENU ACCOUNT SETUP
 //=========================================================================================================
-// send byte 243 to get the mac address, registration ID and users nick name
-// send byte 241 to get the registration ID and registration status
+// send byte 243 to get the mac address, registration ID and users nick name and registration status
 // send byte 240 to set the new registration code and nickname
 //=========================================================================================================
 !account_setup:                                   // 
@@ -864,7 +870,120 @@ jsr !splitRXbuffer+                               // copy the first element to S
     jsr !delay+                                   // 
     jsr !delay+                                   // 
     jmp !server_setup_2-                          // 
-                                                  // 
+
+     
+//=========================================================================================================    
+//   UPDATE SCREEN   
+//=========================================================================================================    
+!update_screen:    
+    jsr !start_menu_screen-                       // 
+    //lda #8 ; sta $fb                              // Load 8 into accumulator and store it in zero page address $fb
+    //jsr !draw_menu_line+                          // Call the draw_menu_line sub routine to draw a line on row 8
+    lda #22 ; sta $fb                             // Load 20 into accumulator and store it in zero page address $fb
+    jsr !draw_menu_line+                          // Call the draw_menu_line sub routine to draw a line on row 20
+    displayText(text_update_menu,1,15)
+    displayText(text_update_line1,4,4)
+    displayText(text_update_line2,6,4)
+    displayText(text_update_line3,10,4)          // new version rom
+    displayText(NEWROM,10,22)
+    displayText(text_update_line4,11,4)          // new version esp
+    displayText(NEWSW,11,22)
+    
+    
+    displayText(text_update_line6,16,4)
+    
+    displayText(text_version,23,1)                // Software version info
+    displayText(versionmask,23,9)                 // Software version info
+    displayText(version,23,13)                    // Software version info
+    displayText(version_date,23,32)               // Software version info
+    displayText(SWVERSION,23,22)
+    // ask the cartridge for new version information
+    
+    
+    !keyinput:                                    // At this point the user can select Y or N
+    jsr $ffe4                                     // Call KERNAL routine: Get character from keyboard buffer
+    beq !keyinput-                                // Loop if there is none
+    cmp #78                                       // 'n' key pressed?
+    beq !exit_menu+                               // If true, exit this page
+    cmp #89                                       // 'y' key pressed?
+    beq !do_update+                               // if so, do the update
+    cmp #136                                      // F7 key pressed?
+    beq !exit_menu+                               // If true, exit to main menu
+    jmp !keyinput-                                // Ignore all other keys and wait for user input again
+
+!exit_menu:                                       // 
+    lda #0                                        // Disable the update check
+    sta UPDATECHECK                               //    
+
+!:
+    rts
+
+!do_update:
+   displayText(text_update_download,14,1)   
+   displayText(text_update_download1,15,1)
+   displayText(text_update_download2,16,1)
+   displayText(text_update_download3,17,1)
+   jsr !wait_for_ready_to_receive+
+   lda #232                                      // load the number #232    
+   sta CMD                                       // Store that in variable CMD
+   sta $de00 
+   ldx #0                                        // x will be our index when we loop over the version text, we start at 1 to skip the first color byte
+   
+!sendconfirmation:                               // 
+    jsr !wait_for_ready_to_receive+              // wait for ready to receive (bit D7 goes high)
+    lda doupdate,x                               // load a byte from the version text with index x
+    sta $de00                                    // send it to IO1
+    cmp #128                                     // if the last byte was 128, the buffer is finished
+    beq !+                                       // exit in that case
+    inx                                          // increase the x index
+    jmp !sendconfirmation-                       //
+!:
+    lda #<(getProgress)                          // \
+    sta $0318                                    //  \ Load a new nmi vector, just for the update
+    lda #>(getProgress)                          //  / And replace the old vector to our own nmi routine
+    sta $0319                                    // /
+    lda #1
+    sta HOME_COLM
+   
+
+!barloop:
+    ldx #19 ; jsr $e9ff // clear line 19
+    ldx #0
+    lda #160
+!bar: 
+    sta $0682,x
+    inx
+    cpx #28
+    beq !done+
+    cpx HOME_COLM
+ 
+    beq !barloop-
+    jmp !bar-
+    
+!done:
+   displayText(text_update_done,19,1)
+    
+!waitForReset:    
+   lda HOME_COLM 
+   cmp #28
+   bcc !barloop-
+   jmp !waitForReset-
+
+getProgress:    
+   pushreg()
+   lda #1
+   sta HOME_COLM
+   lda $df00                                     // this is a number between 1 and 28
+   and #31
+   sta HOME_COLM 
+!:
+   lda #$01                                      // acknoledge the nmi interrupt
+   sta $dd0d                                     // you MUST write and read this address to acknoledge the nmi interrupt
+   lda $dd0d                                     // you MUST write and read this address to acknoledge the nmi interrupt
+    
+   popreg()                                      // 
+   rti                                           // return interupt
+ 
 //=========================================================================================================
 //    MENU LIST USERS
 //=========================================================================================================
@@ -1037,7 +1156,7 @@ rts
     lda CURSORCOLOR                               // Load 5 in accumulator (petscii code for color white)
     jsr $ffd2                                     // Output that petscii code to screen to change the cursor to white                                                  
                                                   // 
-!keyinput:                                        // 
+!keyinput:                                        //     
     jsr !check_for_messages+                      // 
     lda #0                                        // write zero to address $d4
     sta $d4                                       // to disable "quote mode" (special characters for cursor movement and such) 
@@ -1190,6 +1309,74 @@ rts
     bne !exit-                                    // 
     jmp !reset_factory-                           // 
                                                   //                                               
+
+//=========================================================================================================
+// SUB ROUTINE, CHECK FOR UPDATES
+//=========================================================================================================
+!check_updates:
+    
+    lda UPDATECHECK
+    cmp #0                                        // 0 means do not check again (until next reset) 
+    beq !exit+
+    cmp #2                                        // 2 means we allready check and YES there is an update
+    beq !exit+
+    
+    lda VICEMODE                                  // if we are running in simulation mode
+    cmp #1                                        // jump to exit without interacting with ESP32
+    bne !+    
+    lda #2
+    sta UPDATECHECK
+    rts
+    
+!:    
+    lda #239                                      // check for systemupdate
+    sta CMD
+    jsr !send_start_byte_ff+
+    ldx #0                                        // 
+    lda RXBUFFER,x                                // 
+    cmp #128  
+    beq !exit+ 
+    lda #146
+    ldy #0
+    lda #146
+    sta NEWROM,y
+    sta NEWSW,y
+    iny
+!loop1:         
+    lda RXBUFFER,x                                // copy the versions from the buffer to variables
+    sta NEWROM,y         
+    cmp #32              
+    beq !+
+    inx
+    iny
+    jmp !loop1-
+!:  ldy #1
+    inx
+!loop2:
+    lda RXBUFFER,x
+    cmp #128
+    beq !+
+    sta NEWSW,y
+    inx
+    iny
+    jmp !loop2-
+    
+!:  lda #2
+    sta UPDATECHECK
+    jsr !soundbell3+
+    ldx #0                   // copy sysmessage_update to RX buffer
+!loop1:
+    lda sysmessage_update,x
+    sta RXBUFFER,x
+    inx
+    cmp #128
+    bne !loop1-
+    lda $0286                                     // Load the current color into the accumulator
+    sta TEMPCOLOR                                 // Store it in a variable.
+    jsr !sysmsg+
+
+!exit:           
+    rts    
 //=========================================================================================================
 // SUB ROUTINE, CHECK FOR NEW MESSAGES
 //=========================================================================================================
@@ -1225,7 +1412,8 @@ rts
     bne !+                                        // 
     jmp !exit+                                    // 
                                                   // 
-!:  jsr !count_private_messages+                  // 
+!:   
+    jsr !count_private_messages+                  // 
                                                   // Now we will check for new messages.
                                                   // send byte 254 to esp32
                                                   // it will respond with a message or byte 128 if there are no messages
@@ -1247,13 +1435,16 @@ rts
     bne !dispmessage+                             // 
     lda #80                                       // 
     sta CHECKINTERVAL                             // 
+    jsr !check_updates-
     jmp !exit+                                    // 
                                                   // 
 !dispmessage:                                     // 
+
                                                   // we have a message to display
     jsr !soundbell+                               // make some noise now, there's a message!
     lda #2                                        // reset the check interval
     sta CHECKINTERVAL                             // 
+!sysmsg:    
     lda RXBUFFER                                  // the first number in the rx buffer is the number of lines
     cmp #5                                        // this number should be 1 or 2 or 3. But not 4 or higher.
     bcs !error+                                   // jump to error (to display an error) if the number >= 5
@@ -1364,7 +1555,39 @@ rts
     sta PITCH                                     // 
     jsr !soundbell-                               // 
     rts                                           // 
-                                                  // 
+
+!soundbell3: 
+    lda #36 
+    sta PITCH
+    jsr !soundbell-
+    lda #40                                       // 
+    sta DELAY                                     // 
+    jsr !delay+                                   // 
+    lda #26 
+    sta PITCH
+    jsr !soundbell-
+    lda #40                                       // 
+    sta DELAY                                     // 
+    jsr !delay+                                   // 
+    lda #36 
+    sta PITCH
+    jsr !soundbell-
+    lda #40                                       // 
+    sta DELAY                                     // 
+    jsr !delay+                                   // 
+    lda #26 
+    sta PITCH
+    jsr !soundbell-
+    lda #40                                       // 
+    sta DELAY                                     // 
+    jsr !delay+                                   // 
+    lda #46 
+    sta PITCH
+    jsr !soundbell-
+    lda #60                                       // 
+    sta DELAY                                     // 
+    jsr !delay+                                   //     
+    rts
 //=========================================================================================================
 // SUB ROUTINE, ASK FOR THE Nickname of the last PRIVATE MESSAGES
 //=========================================================================================================
@@ -1420,7 +1643,7 @@ rts
     lda SCREEN_ID                                 // we only want to show this information on the main chat screen
     cmp #0                                        // main chat screen ID = 0
     bne !exit+                                    // if not 0, exit
-                                                  // 
+                                                  //     
     lda #241                                      // Load 241 in accumulator (command byte for asking the number of unread private messages)
     sta CMD                                       // Store that in variable CMD
     jsr !send_start_byte_ff+                      // Call the sub routine to obtain connection status from esp32
@@ -1434,6 +1657,7 @@ rts
     jsr !load_buffer-                             // 
                                                   // 
 !exit:                                            // 
+    
     rts                                           // return to sender, just like Elvis.
                                                   // 
 //=========================================================================================================
@@ -2289,9 +2513,9 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.69"; .byte 128
+version:                      .byte 151; .text "3.70"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
-version_date:                 .byte 151; .text "06/2024";.byte 128
+version_date:                 .byte 151; .text "07/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
@@ -2346,7 +2570,18 @@ text_error_vice_mode:         .byte 146; .text "Cartridge not installed."; .byte
 text_error_private_message:   .byte 146; .text "Don't send public msgs from priv. screen"; .byte 128
 text_F5_toggle:               .byte 151; .text "Private Messaging         [F5] Main Chat"; .byte 128
 text_list_menu:               .byte 147; .text "[P]revious      [F7] Exit         [N]ext"; .byte 128
-
+text_update_menu:             .byte 151; .text "UPDATE MENU"; .byte 128
+text_update_line1:            .byte 147; .text "There is a new version available"; .byte 128
+text_update_line2:            .byte 147; .text "Do you want to upgrade? Y/N"; .byte 128
+text_update_line3:            .byte 151; .text "new Rom version : "; .byte 128
+text_update_line4:            .byte 151; .text "new ESP version : "; .byte 128
+text_update_line6:            .byte 147; .text "Please press Y or N"; .byte 128
+text_update_download:         .byte 147; .text "Installing new firmware"; .byte 128
+text_update_done:             .byte 147; .text "Update successful!"; .byte 128
+text_update_download1:        .byte 147,112; .fill 28,64 ; .byte 110,128
+text_update_download2:        .byte 147,93; .fill 28,32 ; .byte 93,128
+text_update_download3:        .byte 147,109; .fill 28,64 ; .byte 125,128
+sysmessage_update:            .byte 2,143,146;.text "New version available, Press F1!        "; .byte 128                                                                        
                                                                         
 // data for big letters on the start screen
 big_letters: .byte 158,85,69,69,73,93,32,32,93,85,69,69,73,67,114,67,32,85,69,69,73,66,213,19
@@ -2373,6 +2608,10 @@ screen_lines_high:            .byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,
 color_lines_high:             .byte $d8,$d8,$d8,$d8,$d8,$d8,$d8,$d9,$d9,$d9,$d9,$d9,$d9,$da,$da,$da,$da,$da,$da,$da,$db,$db,$db,$db,$db // lookup table
 petsciColors:                 .byte $05,$05,$1c,$9f,$9c,$1e,$1f,$9e,$81,$95,$96,$97,$98,$99,$9a,$9b // lookup table
 factoryreset:                 .text "RESET!"; .byte 128
+doupdate:                     .text "UPDATE!"; .byte 128  
+NEWSW:                        .fill 10,32 ; .byte 128         
+NEWROM:                       .fill 10,32 ; .byte 128         
+SWVERSION:                    .fill 10,32 ; .byte 128        //    
                                                   
 //=========================================================================================================
 // VARIABLE BUFFERS
@@ -2394,6 +2633,7 @@ VOICE:                        .byte 0             // Use this voice of the sid c
 DELAY:                        .byte 0             // used in the delay routine
 RXINDEX:                      .byte 0             // index for when we recieve data
 RXFULL:                       .byte 0             // indicator if the buffer contains a complete message
+UPDATECHECK:                  .byte 0
 HAVE_M_BACKUP:                .byte 0             // 
 HAVE_P_BACKUP:                .byte 0             //
 HAVE_ML_BACKUP:               .byte 0             //
@@ -2412,7 +2652,6 @@ PMUSER:                       .fill 12,32         //
 CURSORCOLOR:                  .byte 0             //
 SPLITBUFFER:                  .fill 40,32         //
 SERVERNAME:                   .fill 40,32         //
-SWVERSION:                    .fill 10,32         //
 RXBUFFER:                     .fill 256,128       // reserved space for incoming data
 TXBUFFER:                     .fill 256,128       // reserved space for outgoing data 
 M_CHARBLOCK400:               .fill 256,32        // reserved memory space to backup the screen 1
@@ -2434,7 +2673,7 @@ P_COLBLOCK500:                .fill 256,0         // to backup colors when leavi
 P_COLBLOCK600:                .fill 256,0         // 
 P_COLBLOCK700:                .fill 256,0         //  
 
-debug_in:    .byte 0                                              
+debug_in: .byte 0                                              
 TIMEOUT1: .byte 0                                            
 TIMEOUT2: .byte 0                           
 //=========================================================================================================

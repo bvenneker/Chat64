@@ -1,9 +1,8 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 #include "Arduino.h"
-
-#define SwVersion "3.75"
-
+#define uromVersion "3.70"
+#define SwVersion "3.76"
 #define debug
 
 // Uncomment to enable VICE support
@@ -13,8 +12,5 @@
 // white : pin 17
 // green : pin 16
 //
-
-
-
 
 #endif //COMMON_H_

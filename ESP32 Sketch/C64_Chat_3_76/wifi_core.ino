@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <freertos/message_buffer.h>
 #include <WiFi.h>
+#include <HTTPUpdate.h>
 
 #include "common.h"
 #include "utils.h"
@@ -35,10 +36,11 @@ volatile bool aboutToReset = false;
 volatile bool sendingMessage = false;
 String userPages[6];
 String romVersion = "0.0";
-
+String newVersions ="";
 MessageBufferHandle_t commandBuffer;
 MessageBufferHandle_t responseBuffer;
 bool isWifiCoreConnected = false;
+int lastp = 0;
 
 // ***************************************************************
 //   get the list of users from the webserver
@@ -284,6 +286,9 @@ void WifiCoreLoop(void* parameter) {
           WiFi.localIP().toString().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           break;
+        case DoUpdateCommand:
+          doUpdate();
+          break;
         default:
           Serial.print("Invalid Command Message: ");
           Serial.println(commandMessage.command);
@@ -366,6 +371,7 @@ void WifiCoreLoop(void* parameter) {
 
     httpb.end();
     client.stop();  // without this, we have a small memory leak
+    newVersions = UpdateAvailable();
   }
 }
 
@@ -377,4 +383,74 @@ void softReset() {
   settings.end();
   delay(100);
   ESP.restart();
+}
+
+String UpdateAvailable(){
+  String serverName = "http://" + server + "/checkUpdateForC64.php";
+  WiFiClient client;
+  HTTPClient http;
+  http.begin(client, serverName);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  String httpRequestData = "regid=" + regID ;
+  http.POST(httpRequestData);
+  String result = "0";
+  result = http.getString();
+  result.trim();
+  
+  http.end();
+  client.stop();
+  String thisVersion = String(uromVersion) + " " + String(SwVersion);
+  if (result != thisVersion) {
+    
+    return result;
+  }
+  return "";
+}
+
+void doUpdate(){
+    updateProgress(1);
+     
+    NetworkClient client;
+    httpUpdate.onStart(update_started);
+    httpUpdate.onEnd(update_finished);
+    httpUpdate.onProgress(update_progress);
+    httpUpdate.onError(update_error);
+    httpUpdate.update(client, "http://www.chat64.nl/update/C64_Chat.bin");
+    
+}
+
+void update_started() {
+  updateProgress(1);
+  Serial.println("CALLBACK:  HTTP update process started");
+}
+
+void update_finished() {
+  Serial.println("CALLBACK:  HTTP update process finished");
+}
+
+void update_progress(int cur, int total) {
+  int p = map(cur,1,total,1,28);
+  updateProgress(p);
+  if (p==28) delay(500);
+}
+
+void update_error(int err) {
+  Serial.printf("CALLBACK:  HTTP update fatal error code %d\n", err);
+}
+
+
+void updateProgress(int p){   
+  if (lastp == p) return;
+  lastp = p;
+  digitalWrite(oC64D0, bool(p & B00000001));
+  digitalWrite(oC64D1, bool(p & B00000010));
+  digitalWrite(oC64D2, bool(p & B00000100));
+  digitalWrite(oC64D3, bool(p & B00001000));
+  digitalWrite(oC64D4, bool(p & B00010000));
+  digitalWrite(oC64D5, bool(p & B00100000));
+  digitalWrite(oC64D6, bool(p & B01000000));
+  digitalWrite(oC64D7, bool(p & B10000000));
+  digitalWrite(oC64NMI, !invert_nmi_signal);
+  delayMicroseconds(175);  // minimal 100 microseconds delay
+  digitalWrite(oC64NMI, invert_nmi_signal);
 }

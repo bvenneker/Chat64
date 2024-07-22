@@ -29,6 +29,7 @@ extern volatile int haveMessage;
 extern volatile bool getMessage;
 extern String userPages[6];
 extern String romVersion;
+extern String newVersions;
 extern char multiMessageBufferPub[3500];
 extern char multiMessageBufferPriv[3500];
 extern volatile unsigned long messageIds[];
@@ -48,6 +49,7 @@ extern volatile bool sendingMessage;
 #define SendMessageToServerCommand 4
 #define GetWiFiMacAddressCommand 5
 #define GetWiFiLocalIpCommand 6
+#define DoUpdateCommand 7
 
 struct WiFiCommandMessage{
     byte command;

@@ -50,7 +50,7 @@ byte send_error = 0;
 int userpageCount = 0;
 char multiMessageBufferPub[3500];
 char multiMessageBufferPriv[3500];
-
+unsigned long first_check=0;
 WiFiCommandMessage commandMessage;
 WiFiResponseMessage responseMessage;
 
@@ -180,10 +180,14 @@ void create_Task_WifiCore(){
     0);           /* Core where the task should run */
 
 }
+
+
+
 // *************************************************
 //  SETUP
 // *************************************************
 void setup() {
+  
   Serial.begin(115200);
 
 #ifdef VICE_MODE
@@ -341,6 +345,7 @@ if (doReset != 157){
     Serial.println(localIp);
 #endif
   }
+  
 
 }  // end of setup
 
@@ -404,12 +409,14 @@ void loop() {
     // 242 = get senders nickname of last private message.
     // 241 = get the number of unread private messages
     // 240 = C64 sends the new registration id and nickname to ESP32
+    // 239 = C64 asks if updated firmware is available
     // 238 = C64 triggers call to the chatserver to test connectivity
     // 237 = get chatserver connectivity status
     // 236 = C64 asks for the server configuration status and servername
     // 235 = C64 sends server configuration status
     // 234 = get user list first page
     // 233 = get user list next page
+    // 232 = do update
     // 228 = debug purposes
     // 128 = end marker, ignore
 
@@ -419,6 +426,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 254 = C64 triggers call to the website for new public message
           // ------------------------------------------------------------------------------
+          if (first_check ==0) first_check=millis();
           // send urgent messages first
           doUrgentMessage(); 
           // if the user list is empty, get the list
@@ -460,8 +468,6 @@ void loop() {
             pos0 = 0;
             getMessage = true;
           }
-
-
 
           if (haveMessage == 1) {
             // copy the msgbuffer to the outbuffer
@@ -894,7 +900,16 @@ void loop() {
           settings.end();
           break;
         }
-
+      case 239:
+        { String s=newVersions;
+          if (millis() < (first_check + 10000)) s = ""; 
+          send_String_to_c64(s);
+          if (s !=""){
+             Serial.print("new version available! :");
+             Serial.println(newVersions);
+          }
+          break;
+        }
       case 238:
         {
           // ------------------------------------------------------------------------------
@@ -964,6 +979,21 @@ void loop() {
           String ul1 = userPages[userpageCount];
           send_String_to_c64(ul1);
           userpageCount++;
+          break;
+        }
+      case 232:
+        { // do the update!   
+          receive_buffer_from_C64(1);
+          char bns[inbuffersize + 1];
+          strncpy(bns, inbuffer, inbuffersize + 1);
+          String ns = bns;
+          if (ns.startsWith("UPDATE!")) {   
+            outByte(1);    
+            detachInterrupt(C64IO1); // disable IO1 and IO2 interrupts
+            detachInterrupt(C64IO2); // disable IO1 and IO2 interrupts 
+            commandMessage.command = DoUpdateCommand;
+            xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);            
+          }
           break;
         }
       case 228:
@@ -1237,3 +1267,4 @@ void loadPrgfile() {
   sendByte(0);
   Serial.println("------ PRG FILE DONE ------");
 }
+
