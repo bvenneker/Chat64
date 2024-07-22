@@ -311,12 +311,13 @@ void WifiCoreLoop(void* parameter) {
       }
       if (millis() > last_up_refresh + 30000 and pastMatrix and !sendingMessage) {
         refreshUserPages = true;
+
       }
       if (updateUserlist and !getMessage and pastMatrix and !sendingMessage) {
         updateUserlist = false;
         fill_userlist();
       }
-      if (refreshUserPages and !getMessage and pastMatrix and !sendingMessage) {
+      if (refreshUserPages) {
         refreshUserPages = false;
         get_full_userlist();
         last_up_refresh = millis();
