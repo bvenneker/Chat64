@@ -2523,9 +2523,9 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.70"; .byte 128
+version:                      .byte 151; .text "3.71"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
-version_date:                 .byte 151; .text "07/2024";.byte 128
+version_date:                 .byte 151; .text "08/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
@@ -2591,7 +2591,7 @@ text_update_done:             .byte 147; .text "Update successful!"; .byte 128
 text_update_download1:        .byte 147,112; .fill 28,64 ; .byte 110,128
 text_update_download2:        .byte 147,93; .fill 28,32 ; .byte 93,128
 text_update_download3:        .byte 147,109; .fill 28,64 ; .byte 125,128
-sysmessage_update:            .byte 2,143,146;.text "New version available, Press F1!        "; .byte 128                                                                        
+sysmessage_update:            .byte 2,143,149;.text "New version available, Press F1!        "; .byte 128                                                                        
                                                                         
 // data for big letters on the start screen
 big_letters: .byte 158,85,69,69,73,93,32,32,93,85,69,69,73,67,114,67,32,85,69,69,73,66,213,19
