@@ -27,7 +27,7 @@ extern char msgbuffer[500];
 extern volatile int msgbuffersize;
 extern volatile int haveMessage;
 extern volatile bool getMessage;
-extern String userPages[6];
+extern String userPages[8];
 extern String romVersion;
 extern String newVersions;
 extern char multiMessageBufferPub[3500];

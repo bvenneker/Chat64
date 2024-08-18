@@ -980,6 +980,7 @@ void loop() {
           userpageCount = 0;
           String ul1 = userPages[userpageCount];
           send_String_to_c64(ul1);
+          Serial.println(ul1);
           userpageCount++;
           break;
         }

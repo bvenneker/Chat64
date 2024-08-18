@@ -41,28 +41,15 @@ main_init:                                        //
     bne !clear_sid_loop-                          // 
     lda #$80                                      // disable SHIFT-Commodore
     sta $0291                                     //
-    lda #1                                        // set default update check to 1
-    sta UPDATECHECK                               // set default SID voice to 1
-    sta VOICE                                     //
     lda #<(nmi)                                   // \
     sta $0318                                     //  \ Load our new nmi vector
     lda #>(nmi)                                   //  / And replace the old vector to our own nmi routine
-    sta $0319                                     // /
-    lda #0                                        // Load 0 into accumulator
-    sta OFFSET                                    // store it in variable OFFSET
-    sta VICEMODE                                  // vice mode default is zero
-    sta HAVE_M_BACKUP                             // 
-    sta HAVE_P_BACKUP                             // 
-    sta HAVE_ML_BACKUP                            // 
-    lda #80                                       // Set the check interval. 50 will result in once a second.
-    sta CHECKINTERVAL                             //         
+    sta $0319                                     // /        
     jsr !are_we_in_the_matrix+                    // check if we are running inside a simulator (esp32 is disconnected)
     jsr !start_screen+                            // Call the start screen sub routine first
     jsr $E544                                     // Clear screen after start screen
-                                                  //
     lda #23                                       // Load 23 into accumulator and use it to
     sta $D018                                     // Switch to LOWER CASE
-                                                  //
     lda CONFIG_STATUS                             // 
     cmp #4                                        // Are we fully configured?
     bne !mainmenu+                                // No, jump to main menu first
@@ -267,6 +254,8 @@ rts
                                                   // 
 //=========================================================================================================
 !mainmenu:                                        // 
+    lda 1
+    sta RETURNTOMENU
     lda UPDATECHECK    
     cmp #2
     bne !+ 
@@ -359,7 +348,8 @@ rts
     jmp !exit_menu+                               // Yes, exit menu
 !FX:jmp !keyinput-                                // Ignore all other keys and wait for user input
                                                   // 
-!exit_menu:                                       // F7 Pressed, prepare to exit to chat screen
+!exit_menu:                                       //                                  
+!exit_main_menu:                                  // F7 Pressed, prepare to exit to chat screen
     lda SCREEN_ID                                 // 
     cmp #3                                        // 
     beq !p+                                       // 
@@ -1056,7 +1046,9 @@ jsr !start_menu_screen-                           //
     jmp !zp-                                      // jump to the first page
                                                   // 
 !exit_menu:                                       // F7 Pressed!
-                                                  // We reached the end so
+    lda RETURNTOMENU
+    cmp 1                                         // We reached the end so
+    bne !return_to_chat+
     jmp !mainmenu-                                // we jump back to main menu
                                                   // 
 !clearusers:                                      // 
@@ -1067,7 +1059,9 @@ jsr !start_menu_screen-                           //
     cpx #19                                       // compare x to 19
     bne !clearlines-                              // if x is still lower, repeat the loop
     rts                                           // return from sub routine
-                                                  // 
+
+!return_to_chat:                                  // 
+   jmp !exit_main_menu-     
 //=========================================================================================================
 //    ABOUT SCREEN
 //=========================================================================================================
@@ -1181,6 +1175,11 @@ rts
 !:  cmp #133                                      // F1 key pressed?
     bne !+                                        // No, try the next possible match
     jmp !exit_F1+                                 // Yes, jump to exit F1
+
+!:  cmp #134                                      // F3 key pressed?
+    bne !+                                        // No, try the next possible match
+    jmp !exit_F3+                                 // Yes, jump to exit F3
+
 !:  cmp #136                                      // F7 key pressed? (Is used to exit ANY menu)
     bne !+                                        // No, try the next possible match
     jmp !exit_F7+                                 // Yes, jump to exit F7
@@ -1279,6 +1278,20 @@ rts
     lda #0                                        // load zero in accumulator (delete the keystroke that was in there)
     jmp !keyout-                                  // and jump to keyout
                                                   // 
+!exit_F3:                                         // open the 'who is online page'
+    lda 0
+    sta RETURNTOMENU
+    lda SCREEN_ID                                 // Load the menu ID in accu
+    cmp #0                                        // Compare it to zero (zero is the main chat screen)
+    beq !m+                                       // 
+    cmp #3                                        // 
+    beq !p+                                       // 
+    jmp !exit-                                    // If not equal, jump back up into the key input routine
+!p: jsr !backup_pm_screen+                        // Make a backup of the chat before we clear the screen and jump to the main menu
+    jmp !list_users-                              // 
+!m: jsr !backup_screen+                           // Make a backup of the chat before we clear the screen and jump to the main menu
+    jmp !list_users-                              //
+
 !exit_F1:                                         // This exit to the main menu should only work in the main chat screen.
     lda SCREEN_ID                                 // Load the menu ID in accu
     cmp #0                                        // Compare it to zero (zero is the main chat screen)
@@ -2623,7 +2636,15 @@ NEWSW:                        .fill 10,32 ; .byte 128
 NEWROM:                       .fill 10,32 ; .byte 128         
 SWVERSION:                    .fill 10,32 ; .byte 128        //    
 SERVERNAME:                   .fill 40,32 ; .byte 128        
-                                                  
+VOICE:                        .byte 1             // Use this voice of the sid chip (we alternate between 1 and 2)      
+UPDATECHECK:                  .byte 1             //                                                  
+OFFSET:                       .byte 0             // start reading the buffer with his offset                                                  
+HAVE_M_BACKUP:                .byte 0             // 
+HAVE_P_BACKUP:                .byte 0             //
+HAVE_ML_BACKUP:               .byte 0             //                                                  
+VICEMODE:                     .byte 0             //                                                  
+CHECKINTERVAL:                .byte 80            //                                                  
+RETURNTOMENU:                 .byte 0                                                  
 //=========================================================================================================
 // VARIABLE BUFFERS
 //=========================================================================================================
@@ -2631,7 +2652,6 @@ SERVERNAME:                   .fill 40,32 ; .byte 128
 READLIMIT:                    .byte 0             // How many chars to read from screen (in configuration screens)
 INVERT:                       .byte 0             // Invert the text (used in system messages)       
 CMD:                          .byte 0             // Command to send to the cartridge
-OFFSET:                       .byte 0             // start reading the buffer with his offset
 HOME_LINE:                    .byte 0             // the start line of the text input box
 HOME_COLM:                    .byte 0             // the start column of the text input box
 LIMIT_LINE:                   .byte 0             // the end line of the text input box
@@ -2640,23 +2660,18 @@ CLEAR_FIELD_FLAG:             .byte 0             // a variable to indicate we w
 SCREEN_ID:                    .byte 0             // variable for the menu id, this changes the behaviour of the text input routine
 CONFIG_STATUS:                .byte 0             // variable to store the caonfiguration status
 PITCH:                        .byte 0             // variable for sound pitch
-VOICE:                        .byte 0             // Use this voice of the sid chip (we alternate between 1 and 2)
 DELAY:                        .byte 0             // used in the delay routine
 RXINDEX:                      .byte 0             // index for when we recieve data
 RXFULL:                       .byte 0             // indicator if the buffer contains a complete message
-UPDATECHECK:                  .byte 0
-HAVE_M_BACKUP:                .byte 0             // 
-HAVE_P_BACKUP:                .byte 0             //
-HAVE_ML_BACKUP:               .byte 0             //
 PAGE:                         .byte 0             //
 COLOR:                        .byte 0             //
 LINE_COLOR:                   .byte 0             //
 TIMER:                        .byte 0             //
 TIMER2:                       .byte 0             //
 MESSAGELEN:                   .byte 0             //
-VICEMODE:                     .byte 0             //
+
 TEMPCOLOR:                    .byte 0             //
-CHECKINTERVAL:                .byte 60            //
+
 SEND_ERROR:                   .byte 0             //
 DO_RESTORE_MESSAGE_LINES:     .byte 0             //
 PMUSER:                       .fill 12,32         //
