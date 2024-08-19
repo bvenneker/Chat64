@@ -15,12 +15,13 @@ String ServerConnectResult = "";
 byte ResultColor = 144;
 int pmCount = 0;       // counter for the number of unread private messages
 String pmSender = "";  // name of the personal message sender
-
+unsigned long lastWifiBegin;
 // You do NOT need to change any of these settings!
 String ssid = "empty";      // do not change this!
 String password = "empty";  // do not change this!
 String timeoffset = "empty";
 String server = "empty";  // do not change this!
+String myLocalIp = "0.0.0.0";
 volatile unsigned long messageIds[] = { 0, 0 };
 volatile unsigned long tempMessageIds[] = { 0, 0 };
 volatile unsigned long lastprivmsg = 0;
@@ -252,6 +253,8 @@ void WifiCoreLoop(void* parameter) {
     if (ret != 0) {
       switch (commandMessage.command) {
         case WiFiBeginCommand:
+          lastWifiBegin=millis();
+          Serial.println("Connecting to WiFi");           
           WiFi.mode(WIFI_STA);
           WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
           WiFi.begin(ssid, password);
@@ -281,11 +284,11 @@ void WifiCoreLoop(void* parameter) {
           Network.macAddress().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
           xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           break;
-        case GetWiFiLocalIpCommand:
-          responseMessage.command = GetWiFiLocalIpCommand;
-          WiFi.localIP().toString().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
-          xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-          break;
+        //case GetWiFiLocalIpCommand:
+        //  responseMessage.command = GetWiFiLocalIpCommand;
+        //  WiFi.localIP().toString().toCharArray(responseMessage.response.str, sizeof(responseMessage.response.str));
+        //  xMessageBufferSend(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
+        //  break;
         case DoUpdateCommand:
           doUpdate();
           break;
@@ -298,9 +301,19 @@ void WifiCoreLoop(void* parameter) {
 
     isWifiCoreConnected = WiFi.isConnected();
     if (!isWifiCoreConnected) {
+      myLocalIp="0.0.0.0";
+      if (millis() > lastWifiBegin + 7000) {
+        lastWifiBegin=millis();
+        Serial.print("Connecting to WiFi again");         
+        WiFi.mode(WIFI_STA);
+        WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+        WiFi.begin(ssid, password);  
+      }
       continue;
     } 
-
+    
+    myLocalIp=WiFi.localIP().toString();
+    
     if (!configured.startsWith("d")){
       continue;
     }

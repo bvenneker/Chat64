@@ -15,7 +15,7 @@ bool invert_nmi_signal = false;     // false for pcb rev 2.0
                                     // true for pcb rev 3.7, 
                                     // false for rev 3.8
 
-//#define OTA_VERSION
+#define OTA_VERSION
 
 #ifdef VICE_MODE
 bool accept_serial_command = true;
@@ -33,7 +33,7 @@ bool accept_serial_command = true;
 // ********************************
 
 String urgentMessage = "";
-volatile bool wificonnected = false;
+int wificonnected = -1;
 char regStatus = 'u';
 volatile bool dataFromC64 = false;
 volatile bool io2 = false;
@@ -46,7 +46,6 @@ int it = 0;
 int doReset =0;
 volatile byte ch = 0;
 TaskHandle_t Task1;
-volatile bool internalLEDstatus = false;
 byte send_error = 0;
 int userpageCount = 0;
 char multiMessageBufferPub[3500];
@@ -77,8 +76,6 @@ WiFiResponseMessage responseMessage;
 #define sclk GPIO_NUM_25     // serial clock signal to the shift register
 #define pload GPIO_NUM_16    // parallel load signal to the shift register
 
-#define internalLED GPIO_NUM_2  // Internal LED
-
 // ********************************
 // **        INPUTS             **
 // ********************************
@@ -98,7 +95,6 @@ void IRAM_ATTR isr_io1() {
                               // make it low so the C64 will not send the next byte
                               // until we are ready for it
   ch = 0;
-  internalLEDstatus = true;
   digitalWrite(pload, HIGH);  // stop loading parallel data and enable shifting serial data
   ch = shiftIn(sdata, sclk, MSBFIRST);
   dataFromC64 = true;
@@ -139,7 +135,6 @@ void receive_serial_command() {
     } else {
       if (buf == 'I') {
         ch = Serial2.parseInt();
-        internalLEDstatus = true;
         dataFromC64 = true;
       } else if (buf == 'J') {
         io2 = true;
@@ -272,8 +267,6 @@ void setup() {
   attachInterrupt(resetSwitch, isr_reset, FALLING);  // interrupt for reset button
 
   // define outputs
-  pinMode(internalLED, OUTPUT);
-  digitalWrite(internalLED, LOW);
   pinMode(CLED, OUTPUT);
   digitalWrite(CLED, LOW);
   pinMode(oC64D0, OUTPUT);
@@ -328,13 +321,15 @@ if (doReset != 157){
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
 
-  commandMessage.command = GetWiFiLocalIpCommand;
-  xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
-  xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-  String localIp = responseMessage.response.str;
+  //commandMessage.command = GetWiFiLocalIpCommand;
+  //xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
+  //xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
+  //String localIp = responseMessage.response.str;
 
   // check if we are connected to wifi
   if (isWifiCoreConnected) {
+    wificonnected=1;
+    
     // check the connection with the server.
     // ConnectivityCheck();
 
@@ -342,7 +337,7 @@ if (doReset != 157){
     Serial.print("Macaddress=");
     Serial.println(macaddress);
     Serial.print("Connected to WiFi network with IP Address: ");
-    Serial.println(localIp);
+    Serial.println(myLocalIp);
     Serial.print("Name of the server (from eeprom): ");
     Serial.println(server);
 #endif
@@ -350,8 +345,8 @@ if (doReset != 157){
   } else {
 // if there is no wifi, the user can change the credentials in cartridge menu
 #ifdef debug
-    Serial.print("NO Wifi connection! : ");
-    Serial.println(localIp);
+    Serial.println("NO Wifi connection!");
+     
 #endif
   }
   
@@ -364,20 +359,13 @@ if (doReset != 157){
 unsigned long ledtimer = 0;
 int pos1 = 0;
 int pos0 = 0;
+bool wifiError=false;
+
 void loop() {
   digitalWrite(CLED, isWifiCoreConnected);
-
-  if (internalLEDstatus) {
-    digitalWrite(internalLED, HIGH);
-    ledtimer = millis() + 100;
-    internalLEDstatus = false;
-  }
-
-  if (ledtimer < millis()) {
-    digitalWrite(internalLED, LOW);
-  }
-
-  digitalWrite(oC64D7, HIGH);
+  digitalWrite(oC64D7, HIGH); // Ready to receive!
+  
+  if (isWifiCoreConnected and wificonnected==-1)  wificonnected=1; // only set wificonnected if it has not been set
 
 #ifdef VICE_MODE
   if (accept_serial_command) {
@@ -392,15 +380,23 @@ void loop() {
     dataFromC64 = false;
     digitalWrite(oC64D7, LOW);  // flow control
 #ifdef debug
-    Serial.print("incomming command: ");
-    Serial.println(ch);
+    Serial.printf("incomming command: %d\n",ch);
+    
 #endif
+    //
+    if (wifiError and isWifiCoreConnected){      
+      urgentMessage = "[grn]Wifi connection restored.               ";
+      wifiError=false;
+      wificonnected=1;
+    }
 
     // generate an error if wifi connection drops
-    if (wificonnected && !isWifiCoreConnected) {
+    if (wificonnected==1 && !isWifiCoreConnected) {
       digitalWrite(CLED, LOW);
-      wificonnected = false;
-      urgentMessage = "   Error in WiFi connection, please reset";
+      wificonnected = 0;
+      myLocalIp="0.0.0.0";
+      urgentMessage = "[red]Error in WiFi connection, please check  ";
+      wifiError=true;
     }
 
     // 254 = C64 triggers call to the website for new public message
@@ -562,7 +558,7 @@ void loop() {
 #ifdef debug
               Serial.println("Username not found in list");
 #endif
-              urgentMessage = "System:  Unknown user:" + RecipientName;
+              urgentMessage = "[red]System:  Unknown user:" + RecipientName;
               send_error = 1;
               break;
             }
@@ -595,7 +591,7 @@ void loop() {
           }
           // if it still fails after a few retries, give us an error.
           if (!sc) {
-            urgentMessage = "  System:     ERROR sending the message";
+            urgentMessage = "[red]  System:     ERROR sending the message";
             send_error = 1;
           } else {
             // No error, read the message back from the database to show it on screen
@@ -672,16 +668,12 @@ void loop() {
             sendByte(146);
             send_String_to_c64("Not Connected to Wifi");
           } else {
-            wificonnected = true;
-            commandMessage.command = GetWiFiLocalIpCommand;
-            xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
-            xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-            String localIp = responseMessage.response.str;
-
+            wificonnected = 1;
             digitalWrite(CLED, HIGH);
             sendByte(149);
-            String wifi_status = "Connected with ip " + localIp;
+            String wifi_status = "Connected with ip " + myLocalIp;
             send_String_to_c64(wifi_status);
+            
           }
           break;
         }
@@ -806,8 +798,7 @@ void loop() {
           pastMatrix = true;
           getMessage = true;
 #ifdef debug
-          Serial.print("ROM Version=");
-          Serial.println(romVersion);
+          Serial.println("ROM Version="+romVersion);           
           Serial.println("are we in the Matrix?");
 #endif
           break;
@@ -1239,13 +1230,17 @@ void Deserialize() {
 // Send out urgent message if available (error messages)
 // ******************************************************************************
 void doUrgentMessage(){
+  int color=146;
+  if (urgentMessage.startsWith("[grn]")) color=149;
+  urgentMessage.remove(0,5);
   if (urgentMessage != ""){
     urgentMessage = "   " + urgentMessage;       
     outbuffersize = urgentMessage.length() + 1;     
-    urgentMessage.toCharArray(outbuffer, msgbuffersize);
+    urgentMessage.toCharArray(outbuffer, outbuffersize);
     outbuffer[0] = 1;
     outbuffer[1] = 143;
-    outbuffer[2] = 146;
+    
+    outbuffer[2] = color;
     send_out_buffer_to_C64();            
     urgentMessage = "";
   }

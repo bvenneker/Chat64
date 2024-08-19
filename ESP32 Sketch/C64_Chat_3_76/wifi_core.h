@@ -19,6 +19,7 @@ extern String ssid;
 extern String password;
 extern String timeoffset;
 extern String server;
+extern String myLocalIp;
 extern volatile unsigned long lastprivmsg;
 extern String msgtype;
 extern String users;
@@ -48,7 +49,7 @@ extern String configured;
 #define GetRegistrationStatusCommand 3
 #define SendMessageToServerCommand 4
 #define GetWiFiMacAddressCommand 5
-#define GetWiFiLocalIpCommand 6
+//#define GetWiFiLocalIpCommand 6
 #define DoUpdateCommand 7
 
 struct WiFiCommandMessage{
