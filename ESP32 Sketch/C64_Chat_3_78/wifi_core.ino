@@ -353,7 +353,7 @@ void WifiCoreLoop(void* parameter) {
     httpb.addHeader("Content-Type", "application/x-www-form-urlencoded");  // Specify content-type header
 
     // Prepare your HTTP POST request data
-    String httpRequestData = "regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] + "&previousPrivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
+    String httpRequestData = "mac=" + macaddress + "&regid=" + regID + "&lastmessage=" + messageIds[0] + "&lastprivate=" + messageIds[1] + "&previousPrivate=" + lastprivmsg + "&type=" + msgtype + "&version=" + SwVersion + "&rom=" + romVersion + "&t=" + timeoffset;
 #ifdef debug
     Serial.println(serverName);
     Serial.println(httpRequestData);
@@ -404,7 +404,9 @@ void softReset() {
 }
 
 String UpdateAvailable(){
+  Serial.println("*****************  CHECK UPDATES");
   String serverName = "http://" + server + "/checkUpdateForC64.php";
+  
   WiFiClient client;
   HTTPClient http;
   http.begin(client, serverName);
