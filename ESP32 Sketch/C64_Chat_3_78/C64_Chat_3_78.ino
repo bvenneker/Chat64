@@ -818,7 +818,7 @@ void loop() {
             settings.putString("myNickName", "empty");
             settings.putString("ssid", "empty");
             settings.putString("password", "empty");
-            settings.putString("server", "empty");
+            settings.putString("server", "www.chat64.nl");
             settings.putString("configured", "empty");
             settings.putString("timeoffset", "+0");
             settings.end();
@@ -837,6 +837,7 @@ void loop() {
           xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
           xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
           regStatus = responseMessage.response.str[0];
+          Serial.println(regStatus);
           send_String_to_c64(macaddress + char(129) + regID + char(129) + myNickName + char(129) + regStatus);
           break;
         }
