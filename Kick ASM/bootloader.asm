@@ -2,43 +2,43 @@
 .var CARTRIDGE_SIZE = CARTRIDGE_8K
 .segment CARTRIDGE_FILE [start=$8000,min=$8000, max=$8000+CARTRIDGE_SIZE-1, fill,outBin="cartridge.bin"]   
 //=========================================================================================================
-//	Start of cartridge memory and start parameters
+//  Start of cartridge memory and start parameters
 //=========================================================================================================
-* = $8000											// Start address cartridge
-													//
-	.word	coldstart								// Cartridge cold-start vector dynamic
-	.word	warmstart								// Cartridge warm-start vector dynamic
-	.byte	$C3, $C2, $CD, $38, $30					// CBM8O - Cartridge present string
-													//
+* = $8000                        // Start address cartridge
+                                 //
+  .word coldstart                // Cartridge cold-start vector dynamic
+  .word warmstart                // Cartridge warm-start vector dynamic
+  .byte $C3, $C2, $CD, $38, $30  // CBM8O - Cartridge present string
+                                 //
 //=========================================================================================================
-//	Cold start procedure
+//  Cold start procedure
 //=========================================================================================================
 
-coldstart:										
-		// KERNAL RESET ROUTINE
-		sei
-		stx $d016		// Turn on VIC for PAL / NTSC check
-		jsr $fda3		// IOINIT - Init CIA chips
-		jsr $fd50		// RANTAM - Clear/test system RAM
-		//lda #$a0
-		//sta $0284		// ignore cartridge ROM for end of detected RAM for BASIC
-		jsr $fd15		// RESTOR - Init KERNAL RAM vectors
-		jsr $ff5b		// CINT   - Init VIC and screen editor
-		//cli			// Re-enable IRQ interrupts
+coldstart:                    
+    // KERNAL RESET ROUTINE
+    sei
+    stx $d016   // Turn on VIC for PAL / NTSC check
+    jsr $fda3   // IOINIT - Init CIA chips
+    jsr $fd50   // RANTAM - Clear/test system RAM
+    //lda #$a0
+    //sta $0284   // ignore cartridge ROM for end of detected RAM for BASIC
+    jsr $fd15   // RESTOR - Init KERNAL RAM vectors
+    jsr $ff5b   // CINT   - Init VIC and screen editor
+    //cli     // Re-enable IRQ interrupts
 
 warmstart:
-		lda #<(nmi)                                   // \
-		sta $0318                                     //  \ Load our new nmi vector
-		lda #>(nmi)                                   //  / And replace the old vector to our own nmi routine
-		sta $0319                                     // /			
-					
-		// BASIC RESET  Routine
-		jsr $e453		// Init BASIC RAM vectors
-		jsr $e3bf		// Main BASIC RAM Init routine
-		jsr $e422		// Power-up message / NEW command
-		ldx #$fb
-		txs			    // Reduce stack pointer for BASIC
-		
+    lda #<(nmi)                                   // \
+    sta $0318                                     //  \ Load our new nmi vector
+    lda #>(nmi)                                   //  / And replace the old vector to our own nmi routine
+    sta $0319                                     // /      
+          
+    // BASIC RESET  Routine
+    jsr $e453   // Init BASIC RAM vectors
+    jsr $e3bf   // Main BASIC RAM Init routine
+    jsr $e422   // Power-up message / NEW command
+    ldx #$fb
+    txs         // Reduce stack pointer for BASIC
+    
 
 //=========================================================================================================
 // Main program
@@ -53,7 +53,7 @@ sta $de00               // write byte 100 to IO1
 
                         // All the real actions is interupt driven, through the NMI routine
 !wait:                  // We just wait here
-lda $02					// until the value of $02 is zero
+lda $02                 // until the value of $02 is zero
 cmp #0                  //
 beq !run+               // that means all bytes have been received
 jmp !wait-              // and we can continue to run
@@ -84,10 +84,10 @@ nmi:                                              // When the ESP32 loads a byte
                                                   // to signal the C64. Telling it to read the byte
     pushreg()                                     // 
 
-	lda $02                                       // check the status of $2
-	cmp #0                                        // if zero, we have nothing to de here, exit
-	bne !+
-	jmp !exit_nmi+
+  lda $02                                       // check the status of $2
+  cmp #0                                        // if zero, we have nothing to de here, exit
+  bne !+
+  jmp !exit_nmi+
 
 !:  lda $03                                       // blink the border color if requested
     cmp #20
@@ -105,27 +105,27 @@ nmi:                                              // When the ESP32 loads a byte
     beq !wbc+                                     // $02 = 1 write border color
     cmp #2
     beq !wsc+                                     // $02 = 2 write screen color
-	cmp #3
-	beq !wslb+                                    // $02 = 3 write start address, low byte ($fb)
-	cmp #4
-	beq !wshb+                                    // $02 = 4 write start address, high byte ($fc)
-	cmp #5
-	beq !welb+                                    // $02 = 5 write end address, low byte ($fd)
-	cmp #6
-	beq !wehb+                                    // $02 = 6 write end address, high byte ($fe)
-	cmp #7
-	beq !wpb+                                     // $02 = 7 write program bytes
-	
-	
+  cmp #3
+  beq !wslb+                                    // $02 = 3 write start address, low byte ($fb)
+  cmp #4
+  beq !wshb+                                    // $02 = 4 write start address, high byte ($fc)
+  cmp #5
+  beq !welb+                                    // $02 = 5 write end address, low byte ($fd)
+  cmp #6
+  beq !wehb+                                    // $02 = 6 write end address, high byte ($fe)
+  cmp #7
+  beq !wpb+                                     // $02 = 7 write program bytes
+  
+  
 !wbc:                                             // set the border color
-  lda $df00	
+  lda $df00 
   sta $d020
   sta $03
   inc $02
   jmp !exit_nmi+
 
 !wsc:                                             // set the screen color
-  lda $df00	
+  lda $df00 
   sta $d021
   sta $04
   inc $02
@@ -134,7 +134,7 @@ nmi:                                              // When the ESP32 loads a byte
 !wslb:                                            // write start address low byte ($fb)
   lda $df00
   sta $fb
-  inc $02	
+  inc $02 
   jmp !exit_nmi+
  
 !wshb:                                            // write start addres high byte ($fc)
