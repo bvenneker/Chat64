@@ -109,10 +109,10 @@ main_init:                                        //
     lda #3                                        // Set a flag so other routines know that you
     sta SCREEN_ID                                 // are in a private chat screen
     jsr !restore_pm_screen+                       //  
-    jsr !toggleText+                              // 
-    jmp !chat_screen+                             // 
-                                                  // 
-!toggleText:                                      //          
+    jsr !toggleText+                              // SCREEN_ID | Screen
+    jmp !chat_screen+                             // #0        | Main Chat Screen
+                                                  // #3        | Private Chat Screen 
+!toggleText:                                      //           
     displayText(text_F5_toggle,1,0)               //                                               
 rts
 //=========================================================================================================
@@ -122,6 +122,8 @@ rts
     ldx #0                                        // get ready to draw the line, x is our index
     stx SCREEN_ID                                 // also store zero in the screen id
 !chat_screen:                                     // Draw the divider line
+    lda #0
+    sta MENU_ID
     lda #12                                       // color number 12 is gray
     sta $9c                                       // store the color code in $c9
     lda #21                                       // a line on screen line 21
@@ -143,12 +145,10 @@ rts
     lda #39                                       // load 39 into accumulator
     sta LIMIT_COLM                                // store 39 into the limit_column so the cursor can not go beyond that position
 !ti:                                              // 
-    jsr !text_input+                              // jump to the text input routine. We return from this routine when the users presses enter on the last input line
-                                                  // 
+    jsr !text_input+                              // jump to the text input routine. We return from this routine when the users presses enter on the last input line     
                                                   // at this point we have returned from the text_input routine and we must send the typed message to the esp32
-                                                  // so lets read the message fom screen, including the color information
-    jsr !wait_cursor_invisible+                   // 
-    lda #$01; sta $cc                             // Hide the cursor
+                                                  // so lets read the message fom screen, including the color information 
+    //lda #$01; sta $cc                           // Hide the cursor
     lda SCREEN_ID                                 // check the screen id
     cmp #3                                        // if we are in private messaging (id = 3)
     beq !private_message+                         // then we can skip to label "private_message"
@@ -246,7 +246,7 @@ rts
 //     MAIN MENU
 //=========================================================================================================
 !start_menu_screen:                               // 
-    jsr !wait_cursor_invisible+                   // 
+    //jsr !wait_cursor_invisible+                   // 
     lda #1; sta $cc                               // Cursor off
     jsr $E544                                     // Clear screen
     jsr !draw_top_menu_lines+                     // 
@@ -254,7 +254,8 @@ rts
                                                   // 
 //=========================================================================================================
 !mainmenu:                                        // 
-    lda 1                                         //
+    lda #1                                        //
+    sta MENU_ID
     sta RETURNTOMENU                              //
     lda UPDATECHECK                               //
     cmp #2                                        //
@@ -366,7 +367,7 @@ rts
 // send byte 251 to get current wifi ssid, password and time offset
 // send byte 252 to set new ssid, password and time offset
 //=========================================================================================================
-!wifi_setup:                                      // 
+!wifi_setup:                                      //     
     jsr !start_menu_screen-                       // 
     lda #10 ; sta $fb                             // Load 8 into accumulator and store it in zero page address $fb
     jsr !draw_menu_line+                          // Call draw_menu_line sub routine to draw a line on row 8
@@ -427,8 +428,10 @@ rts
     sta HOME_COLM                                 // Store 7 into home_column variable, so the cursor can not go below 7
     lda #39                                       // Load 39 into accumulator
     sta LIMIT_COLM                                // Store 35 into the limit_column so the cursor can not go beyond that position
-    lda #1                                        // Load 1 into accumulator
-    sta SCREEN_ID                                 // and store it as the ID of this screen
+    lda #0                                        // Load 0 into accumulator
+    sta SCREEN_ID                                 // and store it as the ID of this screen    
+    lda #1
+    sta MENU_ID
     sta CLEAR_FIELD_FLAG                          // and SET clear text flag to 1 (default is zero)
     jsr !text_input+                              // Call the text input routine, we will be back when the user presses RETURN
                                                   // 
@@ -450,7 +453,7 @@ rts
     sta CLEAR_FIELD_FLAG                          // SET clear text flag to 1 (default is zero)
     jsr !text_input+                              // Call text input routine, we will be back when the user presses RETURN
                                                   // 
-    jsr !wait_cursor_invisible+                   // 
+    //jsr !wait_cursor_invisible+                   // 
     lda #$01; sta $cc                             // Hide the cursor
                                                   // 
     displayText(text_save_settings,14,3)          // 
@@ -598,7 +601,7 @@ jsr !splitRXbuffer+                               // copy the first element to S
                                                   // Now we need a text input box so the user can change the registration id and or nick name
 !fill_fields:                                     // Set the limits to where the cursor can travel
     lda #2                                        // Load 2 into accumulator
-    sta SCREEN_ID                                 // and store it as the ID of this menu
+    sta MENU_ID                                   // and store it as the ID of this menu
     lda #6                                        // Load 4 into accumulator
     sta HOME_LINE                                 // Store 4 into Home_line variable, so the cursor van not go above line 4
     lda #18                                       // Load 7 into accumulator
@@ -620,7 +623,7 @@ jsr !splitRXbuffer+                               // copy the first element to S
     lda #1                                        // 
     sta CLEAR_FIELD_FLAG                          // 
     jsr !text_input+                              // Call the text input routine, we will be back when the user presses RETURN
-    jsr !wait_cursor_invisible+                   // 
+    //jsr !wait_cursor_invisible+                   // 
     lda #$01; sta $cc                             // Hide the cursor
                                                   // 
     displayText(text_save_settings,13,3)          // Display "[ F1 Save settings" on line 13, row 3 
@@ -772,7 +775,7 @@ jsr !splitRXbuffer+                               // copy the first element to S
     lda #255                                      // Delay 255... hamsters
     sta DELAY                                     // Store 255 in the DELAY variable
     lda #1                                        // Load 1 into accumulator
-    sta SCREEN_ID                                 // and store it as the ID of this menu (id =1, same as wifi menu, functionality / logic is the same)
+    sta MENU_ID                                   // and store it as the ID of this menu (id =1, same as wifi menu, functionality / logic is the same)
     sta CLEAR_FIELD_FLAG                          // and SET clear text flag to 1 (default is zero)
                                                   // Set the limits to where the cursor can travel
     lda #4                                        // Load 4 into accumulator
@@ -783,7 +786,7 @@ jsr !splitRXbuffer+                               // copy the first element to S
     lda #39                                       // Load 35 into accumulator
     sta LIMIT_COLM                                // Store 39 into the limit_column so the cursor can not go beyond that position
     jsr !text_input+                              // Call the text input routine, we will be back when the user presses RETURN
-    jsr !wait_cursor_invisible+                   // 
+    //jsr !wait_cursor_invisible+                   // 
     lda #$01; sta $cc                             // Hide the cursor
                                                   // 
     displayText(text_save_settings,15,3)          // display "[ F1 ] Save Settings" on line 15, row 3
@@ -1050,7 +1053,7 @@ jsr !start_menu_screen-                           //
                                                   // 
 !exit_menu:                                       // F7 Pressed!
     lda RETURNTOMENU                              //
-    cmp 1                                         // We reached the end so
+    cmp #1                                        // We reached the end so
     bne !return_to_chat+                          //
     jmp !mainmenu-                                // we jump back to main menu
                                                   // 
@@ -1064,7 +1067,7 @@ jsr !start_menu_screen-                           //
     rts                                           // return from sub routine
                                                   //
 !return_to_chat:                                  // 
-   jmp !exit_main_menu-                            //
+   jmp !exit_main_menu-                           //
 //=========================================================================================================
 //    ABOUT SCREEN
 //=========================================================================================================
@@ -1124,8 +1127,8 @@ rts
 !text_input:                                      // 
                                                   // 
 !clearhome:                                       // 
-    jsr !wait_cursor_invisible+                   // 
-    lda SCREEN_ID                                 // Load the menu ID
+    //jsr !wait_cursor_invisible+                   // 
+    lda MENU_ID                                   // Load the menu ID
     cmp #1                                        // If menu ID is 1
     beq !m1+                                      // We do not want to clear the lines
     cmp #2                                        // If menu ID is 2,
@@ -1147,12 +1150,12 @@ rts
 !m1:                                              // 
                                                   // 
 !home:                                            // 
-    jsr !wait_cursor_invisible+                   // 
+    //jsr !wait_cursor_invisible+                   // 
     lda DO_RESTORE_MESSAGE_LINES                  // 
     cmp #1                                        // 
     bne !+                                        // 
     dec DO_RESTORE_MESSAGE_LINES                  // 
-    jsr !restore_message_lines+                   // 
+    jsr !restore_message_lines+                   //     
     rts                                           // 
                                                   // 
 !:  clc                                           // Clear carry so we can SET the cursor position
@@ -1162,7 +1165,7 @@ rts
     lda #0; sta $00cc                             // Show cursor
     lda CURSORCOLOR                               // Load 5 in accumulator (petscii code for color white)
     jsr $ffd2                                     // Output that petscii code to screen to change the cursor to white                                                  
-                                                  // 
+    jsr !fix_inverted_chars+                                              // 
 !keyinput:                                        //     
     jsr !check_for_messages+                      // 
     lda #0                                        // write zero to address $d4
@@ -1216,8 +1219,8 @@ rts
 !:  jmp !preventright+                            // Jump to !preventright
                                                   // 
 !keyout:                                          // 
-    jsr !wait_cursor_invisible+                   // 
-    jsr $ffd2                                     // Output the character to screen
+    jsr $ffd2                                     // Output the character to screen    
+    jsr !fix_inverted_chars+
     lda SEND_ERROR                                // if we are in private messaging and the error message is displayed, remove it here!
     cmp #1                                        // so check if the SEND_ERROR var contains 1
     bne !+                                        // skip to the next label if it does not
@@ -1226,7 +1229,7 @@ rts
     lda SCREEN_ID                                 // no need to continue if we are not in the private message screen.
     cmp #3                                        // compare the screen ID with 3
     bne !+                                        // skip to the next label if we are on any other screen.
-    jsr !toggleText-                               // display the normal text on line 1
+    jsr !toggleText-                              // display the normal text on line 1
 !:                                                // 
     lda $0286                                     // if the current color is black, reset it to white.
     cmp #0                                        // we do not want black text on black background
@@ -1249,7 +1252,7 @@ rts
                                                   // 
 !preventright:                                    // Prevent right is always in the loop, because normal typing can also cause you to go out of boundries!
 !:  pha                                           // push the accu to the stack to keep it save
-    jsr !clear_field+                             // We call !clear_field here because Prevent right is always in the loop.
+    jsr !clear_field+                             // We call !clear_field here because Prevent right is always in the loop.    
     pla                                           // restore the accumulator
     ldy $d3                                       // $d3 always contains the current column of the cursors position
     cpy LIMIT_COLM                                // 
@@ -1262,8 +1265,9 @@ rts
     ldx $d6                                       // $d6 alway contains the current line of the cursor position
     cpx LIMIT_LINE                                // 
     bne !+                                        // 
+    jsr !fix_inverted_chars+
     rts                                           // Return to caller, this exits the keyinput routine! 
-!:  jsr !wait_cursor_invisible+                   // wait for the cursor to go invissible before we reposition the cursor   
+!:  //jsr !wait_cursor_invisible+                   // wait for the cursor to go invissible before we reposition the cursor       
     clc                                           // clear carry bit so we can SET the cursor position
     inx                                           // x has the line number, so increase that                                     
     ldy #0                                        // Select column to zero (start of the line)
@@ -1275,12 +1279,12 @@ rts
     beq !exit+                                    // if so, ignore this key press, jump to exit
     jmp !keyout-                                  // if not, no problem, output the key
                                                   // 
-!exit:                                            // 
+!exit:                                            //             
     lda #0                                        // load zero in accumulator (delete the keystroke that was in there)
     jmp !keyout-                                  // and jump to keyout
                                                   // 
 !exit_F3:                                         // open the 'who is online page'
-    lda 0                                         //
+    lda #0                                        //
     sta RETURNTOMENU                              //
     lda SCREEN_ID                                 // Load the menu ID in accu
     cmp #0                                        // Compare it to zero (zero is the main chat screen)
@@ -1324,6 +1328,9 @@ rts
     jmp !main_chat_screen-                        // and return to the main chat
                                                   // 
 !exit_F7:                                         // This exits TO the main menu or exits to the main chat screen from the private chat screen
+    lda MENU_ID
+    cmp #0
+    bne !+
     lda SCREEN_ID                                 // Load the menu ID in accu
     cmp #0                                        // Compare it to zero (zero is the main chat screen), F7 does nothing in that screen
     beq !exit-                                    // If not equal, jump back up into the key input routine
@@ -1332,11 +1339,11 @@ rts
 !:  jmp !mainmenu-                                // return to the main menu
                                                   // 
 !exit_F6:                                         // 
-    lda SCREEN_ID                                 // 
+    lda MENU_ID                                   // 
     cmp #2                                        // 
-    bne !exit-                                    // 
+    bne !+                                        // 
     jmp !reset_factory-                           // 
-                                                  //                                               
+!:  jmp !exit-                                    //                                               
 
 //=========================================================================================================
 // SUB ROUTINE, CHECK FOR UPDATES
@@ -1409,6 +1416,9 @@ rts
 // SUB ROUTINE, CHECK FOR NEW MESSAGES
 //=========================================================================================================
 !check_for_messages:                              // 
+    lda MENU_ID
+    cmp #1
+    bcs !ex+
     lda $0286                                     // Load the current color into the accumulator
     sta TEMPCOLOR                                 // Store it in a variable.
                                                   // 
@@ -1417,7 +1427,7 @@ rts
     beq !throttle_down+                           // that's fine, continue
     cmp #3                                        // screen 3 is the private chat screen
     beq !throttle_down+                           // that's also fine, please go on
-    jmp !exit+                                    // Not 0 or 3, please jump to the exit
+!ex:jmp !exit+                                    // Not 0 or 3, please jump to the exit
                                                   // 
                                                   // 
 !throttle_down:                                   // this subroutine is triggered many times per second, way too often
@@ -2379,15 +2389,59 @@ rts                                               //
 //=========================================================================================================
 // SUB ROUTINE, WAIT FOR CURSOR INVISIBLE PHASE
 //=========================================================================================================
-!wait_cursor_invisible:                           // wait for the cursor to disapear before moving it
-    tay                                           // transfer the accumulator to y
+!wait_cursor_invisible:                           // wait for the cursor to disapear before moving it  
+
+    pha                                           // keep accumulator safe
+    lda $CC                                       // there is no need to wait if the cursor if off
+    cmp #00                                       // so if address $CC contains a number (not null), we can exit
+    bne !exit+                                    //  
 !waitloop:                                        // start a loop
-    lda #$00; sta $00cc                           // show the cursor (the program can hang without this line in this loop..)
+    lda #0; sta $CC                               // show the cursor (the program can hang without this line in this loop..)
     lda $cf                                       // when the value in this address goes zero, the cursor is in it's invisible phase
+    cmp #0
     bne !waitloop-                                // wait for zero
-    tya                                           // transfer y back to the accumulator
+!exit:
+    pla                                           // restore the accumulator
     rts                                           // 
-                                                  // 
+
+//=========================================================================================================
+// SUB ROUTINE, FIX INVERTED CHARACTERS IN THE MESSAGE LINES
+//=========================================================================================================
+!fix_inverted_chars:  
+   lda MENU_ID 
+   cmp #1
+   bcs !menu_version+
+   ldx #0
+!loop:   
+   lda $770,x 
+   cmp #128
+   bcc !+ 
+   adc #127
+   sta $770,x
+!: inx
+   cpx #120
+   beq !exit+
+   jmp !loop-
+!exit:
+   lda #$00; sta $cc                             // Show the cursor
+   lda #10; sta $cf
+   rts
+
+!menu_version:   
+   ldx #0
+!loop:   
+   lda $4A0,x    
+   cmp #128
+   bcc !+ 
+   adc #127
+   sta $4A0,x
+!: inx
+   cpx #250
+   beq !exit-
+   jmp !loop-
+   
+   
+   
 //=========================================================================================================
 // SUB ROUTINE, WAIT FOR READY TO RECIEVE SIGNAL FROM ESP32
 //=========================================================================================================
@@ -2541,9 +2595,9 @@ text_menu_item_4:             .byte 147; .text "[ F4 ] Server Setup";.byte 128
 text_menu_item_6:             .byte 147; .text "[ F5 ] About Private Messaging";.byte 128
 text_menu_item_5:             .byte 147; .text "[ F6 ] About This Software";.byte 128
 text_version:                 .byte 151; .text "Version";.byte 128
-version:                      .byte 151; .text "3.73"; .byte 128
+version:                      .byte 151; .text "3.75"; .byte 128
 versionmask:                  .byte 151; .text "ROM x.xx ESP x.xx"; .byte 128
-version_date:                 .byte 151; .text "09/2024";.byte 128
+version_date:                 .byte 151; .text "10/2024";.byte 128
 text_wifi_menu:               .byte 151; .text "WIFI SETUP"; .byte 128
 text_wifi_ssid:               .byte 145; .text "SSID:"; .byte 128
 text_wifi_password:           .byte 145; .text "Password:"; .byte 128
@@ -2661,7 +2715,8 @@ HOME_COLM:                    .byte 0             // the start column of the tex
 LIMIT_LINE:                   .byte 0             // the end line of the text input box
 LIMIT_COLM:                   .byte 0             // the end column of the text input box
 CLEAR_FIELD_FLAG:             .byte 0             // a variable to indicate we want to clean the textfield when we start typing, used in the menus
-SCREEN_ID:                    .byte 0             // variable for the menu id, this changes the behaviour of the text input routine
+SCREEN_ID:                    .byte 0             // variable for the screen id, this changes the behaviour of the text input routine
+MENU_ID:                      .byte 0             // variable for the menu id, this changes the behaviour of the text input routine
 CONFIG_STATUS:                .byte 0             // variable to store the caonfiguration status
 PITCH:                        .byte 0             // variable for sound pitch
 DELAY:                        .byte 0             // used in the delay routine
