@@ -7,10 +7,6 @@
 #include "prgfile.h"
 Preferences settings;
 
-bool invert_reset_signal = false ;  // true for pcb rev 2.0
-                                    // false for pcb rev 3.7 
-                                    // false for pcb rev 3.8
-
 bool invert_nmi_signal = false;     // false for pcb rev 2.0
                                     // true for pcb rev 3.7, 
                                     // false for rev 3.8
@@ -31,7 +27,7 @@ bool accept_serial_command = true;
 // ********************************
 // **     Global Variables       **
 // ********************************
-
+bool invert_reset_signal = false;
 String urgentMessage = "";
 int wificonnected = -1;
 char regStatus = 'u';
@@ -244,8 +240,8 @@ void setup() {
   timeoffset = settings.getString("timeoffset", "+0");  // get the time offset from the eeprom
 
 #ifndef OTA_VERSION
-  settings.putInt("invRST",(int)invert_reset_signal); // for future fuctionality
-  settings.putInt("invNMI",(int)invert_nmi_signal);   // for future fuctionality
+  settings.putInt("invRST",(int)invert_reset_signal);   
+  settings.putInt("invNMI",(int)invert_nmi_signal);    
 #else
   invert_nmi_signal = settings.getInt("invNMI");
   invert_reset_signal = settings.getInt("invRST");
@@ -1253,11 +1249,27 @@ void loadPrgfile() {
 
   delay(2000);                                           // give the C64 some time to boot
   Serial.println("Wait for c64 to send 100"); 
+  long ti = 0;
   while (ch != 100) {                                    // wait for the c64 to send byte 100
 #ifdef VICE_MODE
       receive_serial_command();
 #endif
-    // do nothing
+    delayMicroseconds(100);
+    if (ti++ > 30000) {
+      // if this takes too long, invert the reset signal and try again. 
+      invert_reset_signal = !invert_reset_signal;
+      settings.begin("mysettings", false);
+      settings.putInt("invRST",(int)invert_reset_signal);
+      settings.end();
+      
+      digitalWrite(oC64RST, !invert_reset_signal);
+      delay(250);
+      digitalWrite(oC64RST, invert_reset_signal);
+      ti=0;
+    }
+     
+    
+ 
   }
   delay(10);
   Serial.println("------ LOAD PRG FILE ------");
