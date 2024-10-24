@@ -17,7 +17,7 @@ bool invert_nmi_signal = false;     // READ THIS:  If this settings is wrong, th
                                     // set 'true' for pcb rev 3.7, 
                                     // set 'false' for rev 3.8
 
-#define OTA_VERSION
+//#define OTA_VERSION
 
 #ifdef VICE_MODE
 bool accept_serial_command = true;
