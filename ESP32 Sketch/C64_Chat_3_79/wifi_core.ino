@@ -473,4 +473,5 @@ void updateProgress(int p){
   digitalWrite(oC64NMI, !invert_nmi_signal);
   delayMicroseconds(175);  // minimal 100 microseconds delay
   digitalWrite(oC64NMI, invert_nmi_signal);
+  delayMicroseconds(175);  // minimal 100 microseconds delay
 }

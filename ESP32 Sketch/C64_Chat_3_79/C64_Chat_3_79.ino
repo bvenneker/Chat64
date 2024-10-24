@@ -7,11 +7,17 @@
 #include "prgfile.h"
 Preferences settings;
 
-bool invert_nmi_signal = false;     // false for pcb rev 2.0
-                                    // true for pcb rev 3.7, 
-                                    // false for rev 3.8
+bool invert_reset_signal = false ;  // READ THIS:  If this settings is wrong, the program will never start because reset is hold down constant.
+                                    // set 'true' for pcb rev 2.0   
+                                    // set 'false' for pcb rev 3.7 
+                                    // set 'false' for pcb rev 3.8
 
-//#define OTA_VERSION
+bool invert_nmi_signal = false;     // READ THIS:  If this settings is wrong, things might work but auto update will fail.
+                                    // set 'false' for pcb rev 2.0  
+                                    // set 'true' for pcb rev 3.7, 
+                                    // set 'false' for rev 3.8
+
+#define OTA_VERSION
 
 #ifdef VICE_MODE
 bool accept_serial_command = true;
@@ -27,7 +33,7 @@ bool accept_serial_command = true;
 // ********************************
 // **     Global Variables       **
 // ********************************
-bool invert_reset_signal = false;
+
 String urgentMessage = "";
 int wificonnected = -1;
 char regStatus = 'u';
@@ -183,6 +189,8 @@ void setup() {
   
   Serial.begin(115200);
 
+  
+
 #ifdef VICE_MODE
   Serial2.begin(115200);
 #endif
@@ -243,11 +251,9 @@ void setup() {
   settings.putInt("invRST",(int)invert_reset_signal);   
   settings.putInt("invNMI",(int)invert_nmi_signal);    
 #else
-  invert_nmi_signal = settings.getInt("invNMI");
-  invert_reset_signal = settings.getInt("invRST");
+  bool invert_nmi_signal = settings.getInt("invNMI");
+  bool invert_reset_signal = settings.getInt("invRST");
 #endif
-
-
   settings.end();
 
   // define inputs
@@ -261,6 +267,8 @@ void setup() {
   attachInterrupt(C64IO1, isr_io1, RISING);          // interrupt for io1, C64 writes data to io1 address space
   attachInterrupt(C64IO2, isr_io2, FALLING);         // interrupt for io2, c64 reads
   attachInterrupt(resetSwitch, isr_reset, FALLING);  // interrupt for reset button
+
+  
 
   // define outputs
   pinMode(CLED, OUTPUT);
@@ -280,12 +288,14 @@ void setup() {
   digitalWrite(oC64RST, invert_reset_signal);
   digitalWrite(oC64NMI, invert_nmi_signal);
 
+  
+  
   pinMode(pload, OUTPUT);
   digitalWrite(pload, LOW);  // must be low to load parallel data
   pinMode(sclk, OUTPUT);
   digitalWrite(sclk, LOW);  //data shifts to serial data output on the transition from low to high.
 
-
+   ;
 
 
 if (doReset != 157){
@@ -308,11 +318,12 @@ if (doReset != 157){
   settings.end();
 
 #endif
-
+  
+  
 
   // load the prg file
   if (!pastMatrix) loadPrgfile();
-
+  
   // start wifi
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
@@ -1243,37 +1254,19 @@ void doUrgentMessage(){
 }
 
 void loadPrgfile() {
-
+  bool nmiConfirmed = false;
   int startaddress = (prgfile[1] * 0x100) + prgfile[0];  // get the start address from the prg file ($0801)
   int endaddress = startaddress + sizeof(prgfile) - 2;   // calculate the end address
-
   delay(2000);                                           // give the C64 some time to boot
   Serial.println("Wait for c64 to send 100"); 
-  long ti = 0;
   while (ch != 100) {                                    // wait for the c64 to send byte 100
 #ifdef VICE_MODE
       receive_serial_command();
 #endif
-    delayMicroseconds(100);
-    if (ti++ > 30000) {
-      // if this takes too long, invert the reset signal and try again. 
-      invert_reset_signal = !invert_reset_signal;
-      settings.begin("mysettings", false);
-      settings.putInt("invRST",(int)invert_reset_signal);
-      settings.end();
-      
-      digitalWrite(oC64RST, !invert_reset_signal);
-      delay(250);
-      digitalWrite(oC64RST, invert_reset_signal);
-      ti=0;
-    }
-     
-    
- 
   }
   delay(10);
   Serial.println("------ LOAD PRG FILE ------");
-  sendByte(20);                                      // first send the border color during loading 0-15, default = 14, 20 is blink (loading bars)
+  sendByte(20);                                      // send the border color during loading 0-15, default = 6, 20 is blink (loading bars)
   sendByte(0);                                       // send the screen color during loading 0-15, default = 6, 20 is blink (loading bars)
   sendByte(prgfile[0]);                              // send the start address (low byte = 01)
   sendByte(prgfile[1]);                              // send the start address (high byte = 08)

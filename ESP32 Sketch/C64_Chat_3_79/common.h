@@ -2,7 +2,7 @@
 #define COMMON_H_
 #include "Arduino.h"
 #define uromVersion "3.75"
-#define SwVersion "3.79"
+#define SwVersion "3.80"
 #define debug
 
 // Uncomment to enable VICE support
