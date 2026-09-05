@@ -1,0 +1,71 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <HTTPUpdate.h>
+
+const char* WIFI_SSID = "<BlackPearl>";
+const char* WIFI_PASSWORD = "aa1bb2cc3D";
+
+const char* FIRMWARE_URL = "https://github.com/bvenneker/CHAT64_C64/firmware/C64_Chat.bin";
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println();
+  Serial.println("Connecting to WiFi...");
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  Serial.println("Starting firmware installation...");
+
+  WiFiClient client;
+  httpUpdate.onProgress(updateProgress);
+  t_httpUpdate_return result = httpUpdate.update(client, FIRMWARE_URL);
+
+  switch (result) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("Update failed (%d): %s\n",
+                    httpUpdate.getLastError(),
+                    httpUpdate.getLastErrorString().c_str());
+      break;
+
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("No firmware available.");
+      break;
+
+    case HTTP_UPDATE_OK:
+      Serial.println("Installation successful!");
+      Serial.println("Wait for reboot");
+      Serial.println();
+      Serial.println();
+      break;
+  }
+}
+
+void updateProgress(int current, int total)
+{
+    static int lastPrinted = -5;
+    if (total > 0) {
+        int percent = (current * 100) / total;
+        int progress = (percent /10) * 10;
+        if (progress != lastPrinted)
+        {
+            lastPrinted = progress;
+            Serial.printf("\nUpdating: %d%%  (%d / %d bytes)",
+                          progress, current, total);
+        } else Serial.print("*");
+    }
+}
+
+void loop() {
+}
