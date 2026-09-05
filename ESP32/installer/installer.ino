@@ -1,11 +1,12 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
+#include <WiFiClientSecure.h>
 
-const char* WIFI_SSID = "<BlackPearl>";
-const char* WIFI_PASSWORD = "aa1bb2cc3D";
+const char* WIFI_SSID = "YOUR WIFI";
+const char* WIFI_PASSWORD = "YOUR PASSWORD";
 
-const char* FIRMWARE_URL = "https://github.com/bvenneker/CHAT64_C64/firmware/C64_Chat.bin";
+const char* FIRMWARE_URL = "https://raw.githubusercontent.com/bvenneker/CHAT64_C64/main/firmware/C64_Chat.bin";
 
 void setup() {
   Serial.begin(115200);
@@ -28,7 +29,10 @@ void setup() {
 
   Serial.println("Starting firmware installation...");
 
-  WiFiClient client;
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  
   httpUpdate.onProgress(updateProgress);
   t_httpUpdate_return result = httpUpdate.update(client, FIRMWARE_URL);
 
@@ -52,19 +56,17 @@ void setup() {
   }
 }
 
-void updateProgress(int current, int total)
-{
-    static int lastPrinted = -5;
-    if (total > 0) {
-        int percent = (current * 100) / total;
-        int progress = (percent /10) * 10;
-        if (progress != lastPrinted)
-        {
-            lastPrinted = progress;
-            Serial.printf("\nUpdating: %d%%  (%d / %d bytes)",
-                          progress, current, total);
-        } else Serial.print("*");
-    }
+void updateProgress(int current, int total) {
+  static int lastPrinted = -5;
+  if (total > 0) {
+    int percent = (current * 100) / total;
+    int progress = (percent / 10) * 10;
+    if (progress != lastPrinted) {
+      lastPrinted = progress;
+      Serial.printf("\nUpdating: %d%%  (%d / %d bytes)",
+                    progress, current, total);
+    } else Serial.print("*");
+  }
 }
 
 void loop() {
