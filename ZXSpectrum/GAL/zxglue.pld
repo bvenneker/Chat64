@@ -1,0 +1,39 @@
+GAL16V8    ;    first line: gal part number 
+ZXGlue     ;    second line: any text (max. 8 char.)
+
+;1    2     3     4      5   6      7     8    9     10
+A14   A15   IOREQ MREQ   A2  RD     RW    M1   iNMI  GND
+/OE   oRST  NC   RST     NC  RomCE  IO2   IO1  NMI   VCC
+;11   12    13    14     15     16     17    18   19    20
+
+
+RomCE = A14 + A15 + MREQ      ;  Rom Chip Enable = A14 OR A15 OR Memreq
+IO1   = RW + IOREQ + A2 + /M1            
+IO2   = RD + IOREQ + A2 + /M1    
+NMI   = /iNMI        
+RST = /oRST
+
+
+        
+DESCRIPTION
+zx spectrum glue logic for ROM and Chat cartridge
+
+some notes:
+
+m1 rd  a2  iorq IO2
+0   0   0   0   1
+0   0   0   1   1
+0   0   1   0   1
+0   0   1   1   1
+0   1   0   0   1
+0   1   0   1   1
+0   1   1   0   1
+0   1   1   1   1
+1   0   0   0   0
+1   0   0   1   1
+1   0   1   0   1
+1   0   1   1   1
+1   1   0   0   1
+1   1   0   1   1
+1   1   1   0   1
+1   1   1   1   1

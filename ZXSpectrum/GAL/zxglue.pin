@@ -1,0 +1,25 @@
+
+
+ Pin # | Name     | Pin Type
+-----------------------------
+   1   | A14      | Input
+   2   | A15      | Input
+   3   | IOREQ    | Input
+   4   | MREQ     | Input
+   5   | A2       | Input
+   6   | RD       | Input
+   7   | RW       | Input
+   8   | M1       | Input
+   9   | iNMI     | Input
+  10   | GND      | GND
+  11   | /OE      | Input
+  12   | oRST     | Input
+  13   | NC       | NC
+  14   | RST      | Output
+  15   | NC       | NC
+  16   | RomCE    | Output
+  17   | IO2      | Output
+  18   | IO1      | Output
+  19   | NMI      | Output
+  20   | VCC      | VCC
+
