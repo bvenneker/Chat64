@@ -1,3 +1,5 @@
+// Installer for Chat64, Amstrad CPC Version
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
@@ -6,7 +8,7 @@
 const char* WIFI_SSID = "YOUR WIFI";
 const char* WIFI_PASSWORD = "YOUR PASSWORD";
 
-const char* FIRMWARE_URL = "https://raw.githubusercontent.com/bvenneker/CHAT64_C64/main/Commodore/firmware/C64_Chat.bin";
+const char* FIRMWARE_URL = "https://raw.githubusercontent.com/bvenneker/CHAT64_C64/main/AmstradCPC/firmware/CPC_Chat.bin";
 
 void setup() {
   Serial.begin(115200);
