@@ -1,0 +1,21 @@
+GAL16V8 ; gal type 
+AXLGLUE ; second line, any text (max 8 char)
+
+BO2  RW  CCTL  A0  A1  RTR  RTS  NC  NC  GND
+NC   NC  NC    NC  NC  D1   D0   IO2 IO1 VCC
+
+/IO1 = BO2 * /RW * /CCTL * A1 * /A0
+/IO2 = BO2 * RW * /CCTL * A1 * /A0
+
+D0.T =  RTR
+D0.E = BO2 * RW * /CCTL * /A0 * /A1
+
+D1.T =  RTS
+D1.E = BO2 * RW * /CCTL * A0 * /A1
+
+
+
+DESCRIPTION
+Glue logic for input / output test
+ tristate output:  pinname.T
+ tristate control: pinname.E

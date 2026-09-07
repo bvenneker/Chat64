@@ -6,3 +6,6 @@ The SMD version works on the Spectrum 48k and better, including the +2b and up, 
 
 Voltage regulator:
 The pcb contains a 5v voltage regulator module (I get them from Aliexpress), see pictures
+The ones I buy on Aliexpress have 3 pin connector on them, I remove that.
+TIP: TEST the regulator before you install it. They should have about 5 volts (4.8 - 5.2) on the output but I have seen some that had the input voltage on the output.
+

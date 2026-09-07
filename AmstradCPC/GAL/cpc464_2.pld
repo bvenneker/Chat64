@@ -1,0 +1,19 @@
+GAL16V8 ; gal type
+CPCGLUE ; second line, any text (max 8 char)
+
+IORQ A10 Q3 Q2 Q1 E1 E2   E3  E4  GND
+NC   WR  RD NC NC CE ROMD IO2 IO1 VCC
+
+
+/CE = E1 * E2 * E3 * E4 * /Q1 * /Q2 * Q3 
+/IO1 = /IORQ * /A10 * /WR
+/IO2 = /IORQ * /A10 * /RD
+ROMD = E1 * E2 * E3 * E4 
+
+DESCRIPTION
+Glue logic for CPC464
+
+Compiled with: https://rhgndf.github.io/galasm-web/
+ 
+
+
