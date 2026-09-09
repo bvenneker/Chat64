@@ -77,7 +77,9 @@
 ; September 2026: Changes By Bart Venneker for his Chat64 Bootrom
 ; The chat64 project uses this custom ROM to act as a bootloader.
 ; The bootloader loads a program from an ESP32 into memory
-; Changes are commented, comments start with "Bart Venneker changed this:"
+; Changes are commented, comments start with "Bart Venneker changed this"
+; https://raw.github.com/bvenneker/CHAT64_C64/ZXSpectrum/bootrom/
+
 
 ; Definitions
 
