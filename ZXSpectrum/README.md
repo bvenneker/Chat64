@@ -1,4 +1,4 @@
-# ZX Spectrum seBasic321
+# ZX Spectrum ROM, OpenSe Basic 3.2.1 (seBasic321)
 
 This project uses **OpenSE BASIC 3.2.1 (seBasic321)** as the basis for its ZX Spectrum ROM.
 
