@@ -27,7 +27,6 @@ The modifications may include changes required for compatibility with the hardwa
 ## Credits
 
 - **OpenSE BASIC / seBasic321** — original authors and contributors
-- **Sinclair Research** — original ZX Spectrum hardware and Sinclair BASIC upon which this work ultimately builds
 
 This project does not claim authorship of the original OpenSE BASIC code. The original authors and contributors retain credit for their work.
 
