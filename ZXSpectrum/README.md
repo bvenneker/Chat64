@@ -10,6 +10,12 @@ This project is **based on OpenSE BASIC 3.2.1** and retains the original work of
 
 Please refer to the original OpenSE BASIC project for information about the original software, its authors, licensing, and history.
 
+https://sourceforge.net/projects/sebasic/
+
+https://spectrumcomputing.co.uk/entry/27510/ZX-Spectrum/OpenSE_BASIC
+
+https://zxdesign.itch.io/opense
+
 ## Modifications
 
 The ROM used in this project has been modified from the original seBasic321 source to meet the requirements of this project.
