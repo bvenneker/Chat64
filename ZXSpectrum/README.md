@@ -9,7 +9,7 @@ The original OpenSE BASIC project is an open-source replacement/alternative ROM 
 This project is **based on OpenSE BASIC 3.2.1** and retains the original work of the OpenSE BASIC authors.
 
 Please refer to the original OpenSE BASIC project for information about the original software, its authors, licensing, and history.
-
+ 
 https://sourceforge.net/projects/sebasic/
 
 https://spectrumcomputing.co.uk/entry/27510/ZX-Spectrum/OpenSE_BASIC
