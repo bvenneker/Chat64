@@ -1,14 +1,20 @@
-// Installer for Chat64, Amstrad CPC Version
+// Installer for Chat64, MSX Version
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
 #include <WiFiClientSecure.h>
+#include <Preferences.h>
 
-const char* WIFI_SSID = "YOUR WIFI";
-const char* WIFI_PASSWORD = "YOUR PASSWORD";
+
+const char* WIFI_SSID = "YOUR_WIFI_SSID";          //    <------------   CHANGE THIS
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";  //    <------------   CHANGE THIS
+
+
 
 const char* FIRMWARE_URL = "https://raw.githubusercontent.com/bvenneker/CHAT64_C64/main/MSX/firmware/MSX_Chat.bin";
+
+Preferences settings;
 
 void setup() {
   Serial.begin(115200);
@@ -31,6 +37,12 @@ void setup() {
 
   Serial.println("Starting firmware installation...");
 
+  String ssid = WIFI_SSID;
+  String password = WIFI_PASSWORD;
+  settings.begin("mysettings", false);
+  settings.putString("ssid", ssid);
+  settings.putString("password", password);
+  settings.end();
 
   WiFiClientSecure client;
   client.setInsecure();
